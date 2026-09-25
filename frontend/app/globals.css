@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #fff8f5;
+  --foreground: #1e1b19;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: 'Plus Jakarta Sans', 'Noto Sans Ethiopic', 'Kefa', sans-serif;
+  line-height: 1.5;
+}
+
+/* Extended line-height & diacritic protection for Ge'ez strings per UX-DR2 */
+[lang="am"], .geez-text {
+  line-height: 1.65;
+  font-size: max(12px, 1rem);
+  letter-spacing: 0em;
+}
