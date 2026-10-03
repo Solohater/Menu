@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import HeaderPill from "@/components/guest/HeaderPill";
+import Link from "next/link";
 import PickupAlarmModal from "@/components/guest/PickupAlarmModal";
 
 interface OrderStatusPageProps {
@@ -14,11 +14,12 @@ export default function GuestOrderStatusPage({ params }: OrderStatusPageProps) {
     orderRef: "MF-8942-T4",
     status: "Preparing",
     paymentStatus: "paid",
-    totalAmount: 1012,
+    totalAmount: 510,
     estimatedWaitMins: 12,
+    tableLabel: "04",
     items: [
-      { name_en: "Special Sizzling Shekla Tibs", name_am: "የሸክላ ጥብስ", quantity: 1, price: 480 },
-      { name_en: "Traditional Jebena Buna", name_am: "የጀበና ቡና ሥነ ሥርዓት", quantity: 2, price: 240 },
+      { name_en: "Special Sizzling Shekla Tibs", name_am: "የሸክላ ጥብስ", quantity: 1, price: 450 },
+      { name_en: "Traditional Jebena Buna", name_am: "የጀበና ቡና ሥነ ሥርዓት", quantity: 1, price: 60 },
     ],
   });
 
@@ -28,7 +29,7 @@ export default function GuestOrderStatusPage({ params }: OrderStatusPageProps) {
     const timer = setTimeout(() => {
       setOrder((prev: any) => ({ ...prev, status: "Ready" }));
       setIsPickupAlarmOpen(true);
-    }, 4000);
+    }, 5000);
 
     return () => clearTimeout(timer);
   }, []);
@@ -38,87 +39,118 @@ export default function GuestOrderStatusPage({ params }: OrderStatusPageProps) {
     setOrder((prev: any) => ({ ...prev, status: "Closed" }));
   };
 
+  const steps = [
+    { label: "Payment Confirmed", labelAm: "ክፍያ ተረጋግጧል", done: true },
+    { label: "Kitchen Preparing", labelAm: "በማዘጋጀት ላይ", done: order.status === "Preparing" || order.status === "Ready" || order.status === "Closed", active: order.status === "Preparing" },
+    { label: "Ready for Table", labelAm: "ተዘጋጅቷል", done: order.status === "Ready" || order.status === "Closed", active: order.status === "Ready" },
+    { label: "Delivered & Enjoy", labelAm: "ተደርሷል", done: order.status === "Closed", active: order.status === "Closed" },
+  ];
+
   return (
-    <div className="p-4 md:p-6 lg:p-8 max-w-5xl mx-auto min-h-screen bg-teff space-y-6 text-left pb-20">
-      <header className="flex justify-between items-center border-b border-buna/10 pb-4">
-        <div>
-          <h1 className="text-xl font-bold text-buna">Order Live Status Tracker</h1>
-          <span className="text-xs text-buna-mocha font-mono">Ref: {order.orderRef}</span>
-        </div>
-        <HeaderPill label="04" type="table" />
+    <div className="p-4 max-w-lg mx-auto min-h-screen bg-[#fff8f5] text-buna font-sans space-y-5 pb-20">
+      {/* Top Header */}
+      <header className="flex justify-between items-center border-b border-[#ebdcd3]/70 pb-3 pt-1">
+        <Link href="/t/demo_token/menu" className="text-xs font-bold text-primary hover:underline">
+          ← Back to Menu
+        </Link>
+        <span className="bg-[#ebdcd3] text-primary text-[11px] font-extrabold px-3 py-1 rounded-full">
+          Table {order.tableLabel}
+        </span>
       </header>
 
-      {/* 2-Column Desktop Split Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Left Column (7 cols): Status Timeline & Wait Time */}
-        <div className="lg:col-span-7 space-y-5">
-          <div className="bg-white rounded-2xl p-6 border border-buna/10 shadow-sm space-y-5">
-            <div className="flex justify-between items-center border-b border-buna/10 pb-4">
-              <span className="text-xs font-bold text-buna-mocha uppercase tracking-wider">Status Tracker</span>
-              <span
-                className={`px-3 py-1 rounded-full text-xs font-bold ${
-                  order.status === "Closed"
-                    ? "bg-buna/20 text-buna"
-                    : order.status === "Ready"
-                    ? "bg-yetsom-container text-white animate-pulse"
-                    : "bg-primary-fixed text-primary"
+      {/* Main Status Hero Card */}
+      <div className="bg-white rounded-3xl p-6 border border-[#ebdcd3] shadow-md text-center space-y-4">
+        <div className="w-16 h-16 rounded-full mx-auto bg-primary/10 text-primary flex items-center justify-center text-3xl font-black">
+          {order.status === "Preparing" ? "🍳" : order.status === "Ready" ? "🔔" : "✨"}
+        </div>
+
+        <div>
+          <span className="text-[11px] font-bold text-buna-mocha uppercase tracking-wider block">
+            Order Ref: {order.orderRef}
+          </span>
+          <h1 className="text-2xl font-black text-buna tracking-tight mt-1">
+            {order.status === "Preparing" && "Chef is Preparing Your Food"}
+            {order.status === "Ready" && "Your Food is Ready!"}
+            {order.status === "Closed" && "Order Delivered — መልካም ምግብ!"}
+          </h1>
+          <p className="text-xs font-bold text-primary gees-text mt-0.5" lang="am">
+            {order.status === "Preparing" && "ትዕዛዝዎ በኩሽና እየተዘጋጀ ይገኛል"}
+            {order.status === "Ready" && "ምግብዎ ዝግጁ ሆኗል — አስተናጋጁ እያመጣሎት ነው"}
+            {order.status === "Closed" && "ትዕዛዝዎ ደርሷል"}
+          </p>
+        </div>
+
+        {order.status !== "Closed" && (
+          <div className="bg-[#faf2ee] rounded-2xl p-4 border border-[#ebdcd3] flex items-center justify-between">
+            <div className="text-left">
+              <span className="text-[10px] text-buna-mocha font-bold uppercase block">Estimated Wait</span>
+              <span className="text-lg font-black text-primary">~{order.estimatedWaitMins} Minutes</span>
+            </div>
+            <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+          </div>
+        )}
+
+        {/* Step Progression Timeline */}
+        <div className="pt-2 text-left space-y-3 border-t border-[#ebdcd3]/50">
+          {steps.map((st, idx) => (
+            <div key={idx} className="flex items-center space-x-3">
+              <div
+                className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black transition-colors ${
+                  st.done
+                    ? "bg-[#2D7A4D] text-white"
+                    : st.active
+                    ? "bg-primary text-white animate-pulse"
+                    : "bg-[#ebdcd3] text-buna-mocha"
                 }`}
               >
-                {order.status === "Preparing" && "Preparing… (በዝግጅት ላይ…)"}
-                {order.status === "Ready" && "Ready — Please pick up!"}
-                {order.status === "Closed" && "Order Completed"}
-              </span>
-            </div>
-
-            {order.status !== "Closed" && (
-              <div className="bg-teff p-4 rounded-xl flex justify-between items-center border border-buna/10">
-                <span className="text-xs text-buna-mocha font-semibold">Estimated Wait Time:</span>
-                <span className="text-base font-bold text-primary">{order.estimatedWaitMins} mins</span>
+                {st.done ? "✓" : idx + 1}
               </div>
-            )}
-
-            <div className="space-y-3 text-xs text-buna pt-2">
-              <div className="flex items-center space-x-3">
-                <span className="w-3 h-3 rounded-full bg-yetsom-container" />
-                <span className="font-semibold">Payment Confirmed ({order.totalAmount} ETB)</span>
-              </div>
-              <div className="flex items-center space-x-3">
-                <span className={`w-3 h-3 rounded-full ${order.status !== 'Payment Confirmed' ? 'bg-yetsom-container' : 'bg-buna/20'}`} />
-                <span className="font-semibold">Order Received at Kitchen Pass</span>
-              </div>
-              <div className="flex items-center space-x-3">
-                <span className={`w-3 h-3 rounded-full ${order.status === 'Ready' || order.status === 'Closed' ? 'bg-yetsom-container' : 'bg-buna/20'}`} />
-                <span className="font-semibold">Food Ready Signal Emitted</span>
+              <div className="min-w-0">
+                <span className={`text-xs font-bold block ${st.active ? "text-primary" : "text-buna"}`}>
+                  {st.label}
+                </span>
+                <span className="text-[10px] text-buna-mocha gees-text block" lang="am">
+                  {st.labelAm}
+                </span>
               </div>
             </div>
-          </div>
-        </div>
-
-        {/* Right Column (5 cols): Order Receipt Summary */}
-        <div className="lg:col-span-5 space-y-5">
-          <div className="bg-white rounded-2xl p-6 border border-buna/10 shadow-sm space-y-4">
-            <h3 className="text-xs font-bold text-buna-mocha uppercase tracking-wider border-b border-buna/10 pb-2">
-              Order Items Summary
-            </h3>
-            <div className="divide-y divide-buna/10">
-              {order.items.map((item: any, idx: number) => (
-                <div key={idx} className="py-2.5 flex justify-between items-center text-xs">
-                  <div>
-                    <span className="font-bold text-buna block">{item.name_en}</span>
-                    <span className="text-[10px] text-primary gees-text block" lang="am">({item.name_am}) × {item.quantity}</span>
-                  </div>
-                  <span className="font-bold text-primary">ETB {item.price}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="border-t border-buna/10 pt-3 flex justify-between items-center text-sm font-bold">
-              <span>Total Amount Paid</span>
-              <span className="text-primary">ETB {order.totalAmount}</span>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
+
+      {/* Itemized Receipt Details */}
+      <div className="bg-white rounded-3xl p-5 border border-[#ebdcd3] shadow-sm space-y-3">
+        <span className="text-[11px] font-bold text-buna-mocha uppercase tracking-wider block border-b border-[#ebdcd3]/50 pb-2">
+          Receipt Items
+        </span>
+
+        <div className="divide-y divide-[#ebdcd3]/50">
+          {order.items.map((it: any, idx: number) => (
+            <div key={idx} className="py-2.5 flex justify-between items-center text-xs">
+              <div>
+                <span className="font-bold text-buna block">{it.name_en}</span>
+                <span className="text-[10px] text-primary gees-text block" lang="am">
+                  {it.name_am} × {it.quantity}
+                </span>
+              </div>
+              <span className="font-bold text-buna">ETB {it.price}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="border-t border-[#ebdcd3]/60 pt-3 flex justify-between items-center text-sm font-black">
+          <span>Total Paid (VAT & Service incl.)</span>
+          <span className="text-primary">ETB {order.totalAmount}</span>
+        </div>
+      </div>
+
+      {/* Waiter Assistance Action Button */}
+      <button
+        onClick={() => alert("Assistance requested! Waiter notified for Table " + order.tableLabel)}
+        className="w-full py-3.5 bg-white border border-[#ebdcd3] hover:bg-[#faf2ee] rounded-2xl text-xs font-bold text-buna shadow-sm transition-colors flex items-center justify-center space-x-2"
+      >
+        <span>🛎️ Need Table Assistance? Call Waiter</span>
+      </button>
 
       <PickupAlarmModal
         isOpen={isPickupAlarmOpen}

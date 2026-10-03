@@ -1,10 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import HeaderPill from "@/components/guest/HeaderPill";
-import LanguageToggle from "@/components/guest/LanguageToggle";
 import CategoryChips from "@/components/guest/CategoryChips";
-import HeroDishCard from "@/components/guest/HeroDishCard";
 import CompactDishCard from "@/components/guest/CompactDishCard";
 import CustomizeSheet from "@/components/guest/CustomizeSheet";
 import ActiveTrayDock from "@/components/guest/ActiveTrayDock";
@@ -17,6 +14,19 @@ interface LandingProps {
   params: { token: string };
 }
 
+interface HeroDish {
+  id: string;
+  nameEN: string;
+  nameAM: string;
+  price: number;
+  subtitleEN: string;
+  subtitleAM: string;
+  descriptionEN: string;
+  descriptionAM: string;
+  bgColor: string;
+  badge: string;
+}
+
 export default function TakeawayQRLandingPage({ params }: LandingProps) {
   const [resolved, setResolved] = useState<any>(null);
   const [isError, setIsError] = useState(false);
@@ -26,6 +36,36 @@ export default function TakeawayQRLandingPage({ params }: LandingProps) {
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false);
   const [isTrayDrawerOpen, setIsTrayDrawerOpen] = useState(false);
   const [trayItems, setTrayItems] = useState<any[]>([]);
+  const [heroIndex, setHeroIndex] = useState(0);
+
+  const heroDishes: HeroDish[] = [
+    {
+      id: "hero-takeaway-1",
+      nameEN: "Shekla Tibs (Takeaway Pack)",
+      nameAM: "የሸክላ ጥብስ (የጥቅል)",
+      price: 450,
+      subtitleEN: "Thermal pack, injera & awaze",
+      subtitleAM: "በሙቀት መጠበቂያ የታሸገ እንጀራና አዋዜ",
+      descriptionEN: "Tender prime lamb seared in seasoned butter, sealed in thermal container with warm injera.",
+      descriptionAM: "በሙቀት መጠበቂያ የታሸገ ጣፋጭ የሸክላ ጥብስ ከእንጀራ ጋር።",
+      bgColor: "from-[#381a10] to-[#1e0e09]",
+      badge: "Thermal Pack",
+    },
+    {
+      id: "hero-takeaway-2",
+      nameEN: "Royal Beyaynetu Box",
+      nameAM: "የፍስክ በያይነቱ",
+      price: 420,
+      subtitleEN: "Compartment container, fresh teff",
+      subtitleAM: "በጥንቃቄ የታሸገ የፍስክ በያይነቱ",
+      descriptionEN: "Full fasting sampler carefully separated in eco-friendly takeaway boxes.",
+      descriptionAM: "ጎመን፣ ምስር፣ አልጫና ጤፍ እንጀራ በንጽህና የታሸገ።",
+      bgColor: "from-[#1c2e17] to-[#0d170a]",
+      badge: "Eco Box",
+    },
+  ];
+
+  const currentHero = heroDishes[heroIndex];
 
   useEffect(() => {
     if (params.token.includes("invalid")) {
@@ -94,80 +134,156 @@ export default function TakeawayQRLandingPage({ params }: LandingProps) {
   if (!resolved) return <div className="p-6 text-center text-xs text-buna">Loading menu...</div>;
 
   return (
-    <div className="p-4 md:p-6 max-w-md md:max-w-4xl lg:max-w-6xl mx-auto space-y-5 relative pb-28">
+    <div className="min-h-screen bg-[#fff8f5] text-buna font-sans relative pb-28">
       <OfflineBanner lang={lang} />
 
-      <header className="flex justify-between items-center border-b border-buna/10 pb-3 pt-2">
-        <HeaderPill label={resolved.label} type={resolved.type} />
-        <LanguageToggle currentLang={lang} onChange={setLang} />
+      {/* Sticky Top Bar matching Mobile Phone UI */}
+      <header className="sticky top-0 z-40 bg-[#fff8f5]/95 backdrop-blur-md border-b border-[#ebdcd3]/70 px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center space-x-2.5">
+          <div className="w-8 h-8 rounded-xl bg-gold/15 flex items-center justify-center text-gold-text">
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M18.5 7.5c-.83 0-1.5.67-1.5 1.5v1.09C15.86 8.94 14.04 8 12 8c-3.87 0-7 3.13-7 7v1c0 2.21 1.79 4 4 4h6c2.21 0 4-1.79 4-4v-1c0-.34-.04-.67-.1-1h.1c1.38 0 2.5-1.12 2.5-2.5s-1.12-2.5-2.5-2.5h-.5v-1c0-.83-.67-1.5-1.5-1.5zm-3.5 10.5H9c-1.1 0-2-.9-2-2v-1c0-2.76 2.24-5 5-5s5 2.24 5 5v1c0 1.1-.9 2-2 2zM12 2c-.55 0-1 .45-1 1v2.08C11.33 5.03 11.66 5 12 5s.67.03 1 .08V3c0-.55-.45-1-1-1z" />
+            </svg>
+          </div>
+          <span className="font-black text-lg tracking-wider text-buna">MENUFLOW</span>
+        </div>
+
+        <span className="bg-gold/15 text-gold-text text-[11px] font-extrabold px-3 py-1 rounded-full">
+          Pickup #{resolved.label}
+        </span>
       </header>
 
-      {/* Welcome Banner */}
-      <div className="text-left bg-white p-4 md:p-6 rounded-2xl border border-buna/10 shadow-sm space-y-1">
-        <span className="text-xs text-yetsom-container font-bold uppercase tracking-wider block">● Takeaway Express</span>
-        <h1 className="text-base md:text-xl font-bold text-buna">
-          {lang === "am" ? "የጥቅል ማዘዣ — ከካውንተሩ ይውሰዱ" : "Takeaway Ordering — Counter Pickup"}
-        </h1>
-        <p className="text-xs md:text-sm text-buna-mocha">
-          {lang === "am" ? "ምግብዎን ይዘዙ፣ በቴሌብር/ቻፓ ይክፈሉ" : "Select your items and pay directly for fast counter pickup."}
-        </p>
-      </div>
+      {/* Mobile Main Container */}
+      <main className="max-w-md mx-auto px-4 pt-3 space-y-5">
+        {/* HERO DISH SHOWCASE */}
+        <section className="bg-white rounded-3xl overflow-hidden border border-[#ebdcd3] shadow-md relative">
+          <div className={`relative h-64 bg-gradient-to-br ${currentHero.bgColor} flex items-center justify-center overflow-hidden`}>
+            <div className="relative text-center select-none">
+              <div className="relative w-40 h-40 mx-auto rounded-full bg-gradient-to-b from-[#8c3b1b] to-[#451808] border-4 border-[#331408] shadow-2xl flex items-center justify-center p-3">
+                <div className="w-full h-full rounded-full bg-gradient-to-tr from-[#2d1208] via-[#4d200e] to-[#6e2a10] flex flex-col items-center justify-center text-center p-2">
+                  <span className="text-5xl block animate-bounce">
+                    {heroIndex === 0 ? "🥡" : "🍲"}
+                  </span>
+                  <span className="text-[10px] font-extrabold text-[#ffb598] tracking-wider uppercase mt-1">
+                    {currentHero.badge}
+                  </span>
+                </div>
+              </div>
+              <div className="w-48 h-3.5 mx-auto bg-[#2b170c] rounded-full mt-2 shadow-lg" />
+            </div>
 
-      {/* Category Chips Bar */}
-      <CategoryChips
-        categories={categories}
-        activeCategoryId={activeCategoryId}
-        onSelectCategory={setActiveCategoryId}
-        lang={lang}
-      />
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex space-x-1.5 z-10">
+              {heroDishes.map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setHeroIndex(idx)}
+                  className={`w-2.5 h-2.5 rounded-full transition-all duration-200 ${
+                    heroIndex === idx ? "bg-white scale-125" : "bg-white/40"
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
 
-      {/* Hero Featured Dish */}
-      <div className="space-y-2">
-        <div className="max-w-xl">
-          <HeroDishCard
-            id="item1"
-            nameEN="Royal Beyaynetu Platter"
-            nameAM="የፍስክ በያይነቱ"
-            descriptionEN="Packed in thermal eco-container with three rolls of injera."
-            descriptionAM="በጥንቃቄ የታሸገ የፍስክ በያይነቱ"
-            price={650}
-            prepTimeMinutes={15}
-            isAvailable={true}
-            allergenTags={["Takeaway Pack"]}
-            lang={lang}
-            onAddToCart={handleOpenCustomize}
-          />
+          <div className="p-6 space-y-4 text-center">
+            <button
+              type="button"
+              onClick={() =>
+                handleOpenCustomize({
+                  id: currentHero.id,
+                  nameEN: currentHero.nameEN,
+                  nameAM: currentHero.nameAM,
+                  basePrice: currentHero.price,
+                  descriptionEN: currentHero.descriptionEN,
+                  descriptionAM: currentHero.descriptionAM,
+                  options: [
+                    { name_en: "Eco Cutlery Set", name_am: "የምግብ መመገቢያ ቁሳቁስ", price_delta: 15, type: "addon" },
+                    { name_en: "Extra Injera Roll", name_am: "ተጨማሪ እንጀራ", price_delta: 30, type: "addon" },
+                  ],
+                })
+              }
+              className="w-full py-4 px-6 bg-gradient-to-r from-[#9d3e0f] to-[#bd5627] hover:from-[#88350d] hover:to-[#a84c22] text-white text-lg font-black tracking-wider uppercase rounded-2xl shadow-lg transition-all transform active:scale-95"
+            >
+              ORDER NOW
+            </button>
+
+            <div className="space-y-1 pt-1">
+              <h2 className="text-2xl font-black text-buna tracking-tight">
+                {lang === "am" ? `${currentHero.nameAM}፡ ${currentHero.price} ብር` : `${currentHero.nameEN}: Birr ${currentHero.price}`}
+              </h2>
+              <p className="text-sm font-semibold text-buna-mocha">
+                {lang === "am" ? currentHero.subtitleAM : currentHero.subtitleEN}
+              </p>
+              <p className="text-lg font-bold text-buna gees-text pt-0.5" lang="am">
+                {currentHero.nameAM}
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* Bilingual Language Switcher Pill */}
+        <div className="flex justify-center pt-1">
+          <div className="inline-flex items-center bg-[#ebdcd3]/70 backdrop-blur-md rounded-full p-1 shadow-sm border border-[#ebdcd3]">
+            <button
+              type="button"
+              onClick={() => setLang("en")}
+              className={`px-4 py-1.5 rounded-full text-xs font-black transition-all ${
+                lang === "en" ? "bg-primary text-white shadow-sm" : "text-buna-mocha hover:text-buna"
+              }`}
+            >
+              EN
+            </button>
+            <span className="text-xs text-buna-mocha font-bold px-1.5">/</span>
+            <button
+              type="button"
+              onClick={() => setLang("am")}
+              lang="am"
+              className={`px-4 py-1.5 rounded-full text-xs font-black gees-text transition-all ${
+                lang === "am" ? "bg-primary text-white shadow-sm" : "text-buna-mocha hover:text-buna"
+              }`}
+            >
+              አማ
+            </button>
+          </div>
         </div>
-      </div>
 
-      {/* Responsive Grid for Compact Dish Cards */}
-      <div className="space-y-3 pt-2">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <CompactDishCard
-            id="item2"
-            nameEN="Special Sizzling Shekla Tibs"
-            nameAM="የሸክላ ጥብስ"
-            descriptionEN="Tender prime beef seared in seasoned clarified butter"
-            descriptionAM="በተነጠረ ለዛ ባለው ቅቤ የተጠበሰ"
-            price={480}
-            isAvailable={true}
+        {/* Categories & Items */}
+        <section className="space-y-4 pt-3">
+          <CategoryChips
+            categories={categories}
+            activeCategoryId={activeCategoryId}
+            onSelectCategory={setActiveCategoryId}
             lang={lang}
-            onAddToCart={handleOpenCustomize}
           />
-          <CompactDishCard
-            id="item3"
-            nameEN="Traditional Jebena Buna"
-            nameAM="የጀበና ቡና ሥነ ሥርዓት"
-            descriptionEN="Fresh wood-roasted Buna ceremony coffee"
-            descriptionAM="በእንጨት እሳት የተቆላ የጀበና ቡና"
-            price={120}
-            isAvailable={true}
-            lang={lang}
-            onAddToCart={handleOpenCustomize}
-          />
-        </div>
-      </div>
 
+          <div className="space-y-3">
+            <CompactDishCard
+              id="item-t1"
+              nameEN="Royal Beyaynetu Box"
+              nameAM="የፍስክ በያይነቱ"
+              descriptionEN="Sealed eco-box with gomen, misir, and fresh brown teff rolls"
+              descriptionAM="በጥንቃቄ የታሸገ የፍስክ በያይነቱ"
+              price={420}
+              isAvailable={true}
+              lang={lang}
+              onAddToCart={handleOpenCustomize}
+            />
+            <CompactDishCard
+              id="item-t2"
+              nameEN="Traditional Jebena Buna Cup"
+              nameAM="የጀበና ቡና"
+              descriptionEN="Fresh brewed spiced coffee in takeaway cup"
+              descriptionAM="የተፈላ የጀበና ቡና"
+              price={60}
+              isAvailable={true}
+              lang={lang}
+              onAddToCart={handleOpenCustomize}
+            />
+          </div>
+        </section>
+      </main>
+
+      {/* Slide-Up Customization Drawer */}
       <CustomizeSheet
         isOpen={isCustomizeOpen}
         item={selectedItem}
@@ -176,6 +292,7 @@ export default function TakeawayQRLandingPage({ params }: LandingProps) {
         onConfirm={handleConfirmCustomization}
       />
 
+      {/* Floating Active Tray Dock */}
       <ActiveTrayDock
         itemCount={totalItemCount}
         totalPriceETB={totalPriceETB}
@@ -183,6 +300,7 @@ export default function TakeawayQRLandingPage({ params }: LandingProps) {
         onCheckout={handleCheckout}
       />
 
+      {/* Active Tray Full Drawer */}
       <ActiveTrayDrawer
         isOpen={isTrayDrawerOpen}
         items={trayItems}

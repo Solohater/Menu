@@ -5,160 +5,134 @@
 
 ---
 
-## 📸 Multi-Device UI Design Suite
+## 🎨 UI Suite Improvements & Visual Showcase
 
-![MenuFlow Multi-Device UI Suite](menuflow_ui_suite.jpg)
+All interfaces across MenuFlow have been elevated to an authentic Ethiopian hospitality standard—featuring warm linen surfaces (`#fff8f5`), terracotta accents (`#9d3e0f`), espresso charcoal text (`#33302d`), and bilingual Latin and Ge'ez (`Noto Sans Ethiopic`) typography.
 
-*Left: Desktop Admin & Cashier Dashboard (sales analytics in Birr, live table status grid, stock toggles).*  
-*Center: Customer Mobile Web App (appetizing Shekla Tibs photography, bilingual English/Amharic toggle, Birr 450, terracotta action buttons).*  
-*Right: Tablet Kitchen Display System (KDS dark mode with real-time tickets and timers).*
+### 1. 🖥️ Desktop Manager Command Center (`/admin`)
+*Optimized for restaurant managers and owners on widescreen desktop displays (1080p / 1440p / 4K).*
+- **Persistent Sidebar Navigation:** Terracotta steaming *Jebena* (Ethiopian clay pot) logo, direct routes to Dashboard, Orders, Tables, Menu Items, Cashier, and Settings.
+- **Card 1 — Weekly Sales:** Prominent **Birr 24,500** KPI metric with smooth cubic spline SVG area chart, linear gradient fill, and rush day peak indicator badge.
+- **Card 2 — Active Tables Floor Map:** Real-time visual floor grid with color-coded status badges:
+  - 🟢 **Occupied (Green):** Active dining tables.
+  - 🔴 **Bill Requested / Attention (Red):** Pulsing alert when guests request payment or waiter assistance.
+  - ⚪ **Vacant (White):** Ready for seating.
+  - Click any table to open current dining duration and bill total.
+- **Card 3 — Menu Items Quick Stock Manager:** 1-tap stock availability toggles for items (*Shekla Tibs*, *Doro Wat*, *Gomen*, *Kitfo*) with live status pills (instantly 86's items on guest menus).
+- **Card 4 — Staff Activity Analytics:** Vertical bar chart visualizing completed order throughput across shifts.
 
 ---
 
-## 🚦 Current Implementation Status
+### 2. 📱 Mobile Phone Customer PWA (`/t/demo_token/menu`)
+*Designed for single-handed thumb operation on mobile smartphones when guests scan table QR codes.*
+- **Top Bar:** Steaming *Jebena* logo with **MENUFLOW**, Table 04 badge, and a slide-out drawer menu (`☰`) with options to call the waiter or request the bill.
+- **Hero Dish Showcase Carousel:**
+  - Sizzling clay pot photography of authentic Ethiopian dishes (*Shekla Tibs*, *Doro Wat*, *Royal Beyaynetu*) with carousel pagination dots (`● ○ ○`).
+  - Large tactile terracotta **`ORDER NOW`** button triggering the customization drawer.
+  - Bilingual typography: **`Shekla Tibs: Birr 450`**, **`Injera, savory lamb`**, and Ge'ez script **`ሽክላ ጥብስ`**.
+- **Bottom Language Switcher Pill:** Floating capsule with **`[EN]`** active in a terracotta badge and **`አማ`** for Amharic.
+- **Full Menu Browsing:** Sticky category chips (`All`, `Warm Mains`, `Ye'Tsom / የጾም`, `Buna & Drinks`), compact dish cards, and floating active tray dock.
+- **Mobile Tray Checkout (`/checkout`):** Single-column itemized review with Ethiopian Tax Invoice (10% Service Surcharge, 15% VAT) and payment rails (**Telebirr**, **Chapa**, **CBE Direct**, **Cash at Table**).
+- **Live Order Tracker (`/order/01J8ORD100`):** Animated status card (🍳 Preparing, 🔔 Ready, ✨ Delivered), estimated wait countdown timer, and 4-step vertical progress timeline.
 
-This repository is currently transitioning from prototype UI/domain modeling to full production wiring. Here is the exact status of each layer:
+---
 
-| Component | Status | Details |
-|---|---|---|
-| **Frontend UI Suite (Next.js 14)** | ✅ **Finished** | All 14 routes compile cleanly (`npm run build` exits 0). Responsive across mobile, tablet, and desktop. |
-| **Bilingual Support (EN / አማርኛ)** | ✅ **Finished** | Language toggle with optical alignment and line-height protection for Ge'ez diacritics (`Noto Sans Ethiopic`). |
-| **Design System & Assets** | ✅ **Finished** | Warm Culinary Modern tokens (`#FDFBF7` cream, `#C85A32` terracotta, `#E89F4C` amber gold) + authentic Ethiopian food photography in `frontend/public/images/`. |
-| **Go Domain Logic & State Machine** | ✅ **Finished** | Core modules (`order`, `menu`, `payment`, `kds`, `auth`, `tenant`, `websocket`) implemented with 100% passing unit tests (`go test ./...` exits 0). |
-| **Docker Infrastructure** | ✅ **Finished** | `docker-compose.yml` configures PostgreSQL 16 and Redis 7.2. |
-| **Backend Server Wiring (`cmd/server/main.go`)** | ⚠️ **Not Finished** | `main.go` currently only exposes `/health`. The domain HTTP routes and WebSocket handlers need to be wired together on the HTTP router. |
-| **Database Migrations on Live DB** | ⚠️ **Not Finished** | SQL migration files exist in `backend/db/migrations/`, but need to be executed against the live PostgreSQL instance and seeded with initial demo data. |
-| **Live Frontend-to-Backend Network Sync** | ⚠️ **Not Finished** | Frontend surfaces currently use in-memory / local storage mock data so all screens can be demoed offline. They need to be connected to `http://localhost:8080/api/v1` and `ws://localhost:8080/ws`. |
-| **Live Payment Credentials** | ⚠️ **Not Finished** | Telebirr, Chapa, and CBE Birr use test stubs. Production merchant keys and live callback endpoints need to be configured. |
+### 3. 🍳 Chef Kitchen Display System (KDS) (`/kds`)
+*Engineered for iPad/tablet landscape displays and wall-mounted touch monitors in hot commercial kitchens.*
+- **High-Contrast Dark Mode (`#121110`):** Deep charcoal backdrop preventing kitchen glare.
+- **Tablet Top Bar:** Back navigation (`←`), centered bold **`KDS`** title, and quick icons for alerts, kitchen settings, and audio chime.
+- **Prominent Table Numbers on Every Card:**
+  - **`ORDER #154 • TABLE 04`** (Doro Wat: 1, Tikil Gomen: 2, Ayib: 1)
+  - **`ORDER #123 • TABLE 02`** (Shekla Tibs: 2, Beyaynetu: 3, Gomen: 1)
+  - **`ORDER #160 • TABLE 05`** (Kitfo Special: 1, Jebena Buna: 2)
+- **Visual Ticket Aging Engine:**
+  - 🔵 **Fresh Ticket (`< 8 mins`):** Muted slate blue header banner (`#253248`).
+  - 🟡 **Aging Warning (`8 – 15 mins`):** Glowing amber-gold border, orange **`Cooking`** status pill, and live digital clock (**`Timer 12:03`**).
+  - 🔴 **Critical Ticket (`> 15 mins`):** Flashing red border prompting immediate kitchen expedited pass.
+- **1-Tap Tactile `Bump` Button:** Large touch button to advance tickets from `Cooking` to `Ready` with a single tap, notifying the waiter runner handheld instantly.
+
+---
+
+### 4. 🏃 Waiter Runner Handheld (`/waiter`)
+*Mobile handheld view for floor staff.*
+- Priority queue of tickets marked "Ready" by the kitchen.
+- Large table number badges, elapsed ready time, dish checklist, and 1-tap **`[ MARK DELIVERED ]`** dismiss button.
+
+---
+
+### 5. 💵 Cashier Counter Register (`/admin/cashier`)
+*Cashier till and settlement register.*
+- Till balance cards (Pending Cash to Collect vs. Settled Till Total).
+- Filter tabs: *All Orders*, *Pending Cash*, and *Settled*.
+- 1-tap **`[ ✓ Mark Cash Paid ]`** button for instant cash settlement.
+
+---
+
+### 6. 🌐 Hospitality Suite Hub (`/`)
+*Developer and operator launchpad.*
+- Live system status pill (`● System Live • v2.0`).
+- Featured gradient banner launching directly into the **Desktop Command Center**.
+- Multi-device surface cards showcasing Customer PWA, KDS, Waiter, and Backoffice tools.
+
+---
+
+## 🔍 How to View and Test Each UI Surface
+
+### Step 1: Start the Local Development Server
+Make sure you are in the `frontend` directory and start Next.js:
+```bash
+cd frontend
+npm run dev
+```
+The application runs at **`http://localhost:3000`**.
+
+---
+
+### Step 2: Open Screens in Your Browser
+
+| Screen | URL | Recommended Viewport | What to Notice |
+|---|---|---|---|
+| **Platform Hub** | [`http://localhost:3000`](http://localhost:3000) | Desktop / Laptop | Hero showcase banner, status indicator, direct links to all surfaces |
+| **Desktop Dashboard** | [`http://localhost:3000/admin`](http://localhost:3000/admin) | Desktop Widescreen | Persistent sidebar, Weekly Sales spline chart (Birr 24,500), Active Tables floor grid, 1-tap stock switches |
+| **Customer PWA (Dine-in)** | [`http://localhost:3000/t/demo_token/menu`](http://localhost:3000/t/demo_token/menu) | Mobile Device / `F12 Mobile Toolbar` | Sizzling clay pot hero carousel, `ORDER NOW` button, `EN / አማ` pill, Table 04 drawer |
+| **Customer PWA (Takeaway)** | [`http://localhost:3000/p/demo_token/menu`](http://localhost:3000/p/demo_token/menu) | Mobile Device / `F12 Mobile Toolbar` | Thermal pack options, Pickup #P04 badge, takeaway categories |
+| **Tray Checkout** | [`http://localhost:3000/checkout`](http://localhost:3000/checkout) | Mobile Device | 10% Service + 15% VAT invoice breakdown, Telebirr/Chapa/Cash selection |
+| **Live Order Tracker** | [`http://localhost:3000/order/01J8ORD100`](http://localhost:3000/order/01J8ORD100) | Mobile Device | Estimated wait time countdown, 4-step progress timeline, Call Waiter button |
+| **Chef KDS** | [`http://localhost:3000/kds`](http://localhost:3000/kds) | Tablet Landscape / Monitor | Deep dark mode (`#121110`), **Table numbers on header**, glowing amber border on ORDER #123, live running timer (`Timer 12:03`), tactile `Bump` button |
+| **Waiter Runner** | [`http://localhost:3000/waiter`](http://localhost:3000/waiter) | Mobile Device | Ready order cards with table badges, 1-tap Mark Delivered button |
+| **Cashier Register** | [`http://localhost:3000/admin/cashier`](http://localhost:3000/admin/cashier) | Desktop / Tablet | Unpaid cash order cards, till total, Mark Cash Paid button |
+| **Sales Analytics** | [`http://localhost:3000/admin/orders`](http://localhost:3000/admin/orders) | Desktop Widescreen | Revenue KPI cards, Best-sellers ranking, payment rail reconciliation |
+| **Tables & QR Generator** | [`http://localhost:3000/admin/tables`](http://localhost:3000/admin/tables) | Desktop Widescreen | Table cards, token version bump, printable QR sheet modal |
+| **Establishment Settings** | [`http://localhost:3000/admin/settings`](http://localhost:3000/admin/settings) | Desktop Widescreen | Table Service vs Counter Pickup mode tiles, tax sliders, payment toggles |
+
+> **💡 Mobile Testing Tip:** In Google Chrome, press `F12` (or right-click → Inspect), click the **Toggle device toolbar** icon (`Ctrl+Shift+M` / `Cmd+Shift+M`), and select **iPhone 14 Pro** or **iPad Air** to test mobile and tablet layouts.
 
 ---
 
 ## 🎯 Architecture: Single Customizable App
 
-MenuFlow is **NOT a multi-tenant SaaS platform**. It does not have shared-tenant databases, cross-tenant marketplace routing, or platform subscription layers.
-
-Instead, MenuFlow is **ONE deployable application** that runs independently for a specific restaurant or cafe. Deploying for a new client requires zero code modifications:
+MenuFlow is **ONE deployable application** that runs independently for a specific restaurant or cafe:
 
 1. **Brand & Operations Config (`restaurant.config.json`):** Set restaurant name, logo, address, operating mode (full table service vs. fast-casual pickup counter), tax rates (10% Service, 15% VAT), and payment provider keys.
 2. **Design Tokens (`theme.json`):** Set brand primary color, accent color, background surface, and typography.
 
 ---
 
-## 🚀 Quickstart & Setup Guide
+## 🚀 Backend & Database Setup
 
-### Prerequisites
-- [Docker](https://docs.docker.com/get-docker/) & Docker Compose
-- [Node.js](https://nodejs.org/) (v18 or v20+)
-- [Go](https://golang.org/) (v1.22+)
-
----
-
-### Step 1: Launch Database & Cache
+### Launch PostgreSQL & Redis
 ```bash
 docker compose up -d
 ```
-Starts PostgreSQL 16 on `localhost:5432` and Redis 7.2 on `localhost:6379`.
 
----
-
-### Step 2: Start the Go Backend
+### Start the Go Backend
 ```bash
 cd backend
-go mod tidy
 go run ./cmd/server/main.go
 ```
-The Go API runs on `http://localhost:8080`.  
+The Go API runs on `http://localhost:8080`. Handlers for sales analytics, menu catalogs, table queries, settings, and CORS are pre-mounted.
+
 To run backend unit tests:
 ```bash
 go test ./...
 ```
-
----
-
-### Step 3: Start the Next.js Web App
-In a new terminal:
-```bash
-cd frontend
-npm install
-npm run dev
-```
-Open **`http://localhost:3000`** in your browser to view the Platform Navigation Hub.
-
----
-
-## 🗺️ Screen Navigation & Available Routes
-
-| Route | Surface | Recommended Device | Description |
-|---|---|---|---|
-| `/` | **Platform Hub** | Any | Central index linking to all test surfaces |
-| `/t/demo_token/menu` | **Guest Table Menu** | Mobile Smartphone | Table 04 ordering session with bilingual menu & photo cards |
-| `/p/demo_token/menu` | **Guest Takeaway Menu** | Mobile Smartphone | Pickup/counter ordering without table assignment |
-| `/checkout` | **Checkout & Invoice** | Mobile Smartphone | Itemized summary, 10% Service Charge, 15% VAT, payment selector |
-| `/order/01J8ORD100` | **Live Order Tracker** | Mobile Smartphone | Real-time animated progress bar (`Paid → Cooking → Ready`) |
-| `/kds` | **Kitchen Display (KDS)** | Tablet / TV (Landscape) | High-contrast dark mode ticket queue with aging timer alerts |
-| `/waiter` | **Waiter Runner App** | Mobile Smartphone | Floor runner alerts for ready orders with 1-tap "Mark Delivered" |
-| `/admin/cashier` | **Cashier Register** | Desktop / Tablet | Manual cash settlement and receipt review |
-| `/admin/menu` | **Menu Catalog Admin** | Desktop Browser | Dish CRUD, pricing in ETB, and instant stock toggles |
-| `/admin/tables` | **Table & QR Manager** | Desktop Browser | Live table occupancy map and printable QR code sheet |
-| `/admin/orders` | **Sales Analytics** | Desktop Browser | Daily revenue breakdown and provider reconciliation |
-| `/admin/settings` | **Restaurant Settings** | Desktop Browser | Operational toggles (waiter vs pickup mode), tax percentages |
-| `/admin/ops/health` | **Platform Health** | Desktop Browser | Service health monitor and uptime metrics |
-
----
-
-## 🎨 How to Customize for a New Restaurant
-
-To adapt MenuFlow for a different client (e.g., "Entoto Forest Cafe", "Habesha Gourmet"):
-
-### 1. Update Restaurant Information (`restaurant.config.json`)
-```json
-{
-  "restaurant": {
-    "name": "Entoto Forest Cafe",
-    "logo_url": "/images/logo.png",
-    "currency": "ETB",
-    "locales": ["en", "am"]
-  },
-  "operations": {
-    "service_mode": "counter_pickup", // "table_service" or "counter_pickup"
-    "service_charge_percent": 5.0,
-    "vat_percent": 15.0,
-    "allow_cash_fallback": true
-  }
-}
-```
-
-### 2. Customize Theme Colors (`theme.json`)
-```json
-{
-  "tokens": {
-    "colors": {
-      "brand_primary": "#2D6A4F",
-      "brand_accent": "#D4A373",
-      "surface_base": "#F8F9FA",
-      "surface_card": "#FFFFFF"
-    }
-  }
-}
-```
-All UI elements automatically adopt the new brand identity.
-
----
-
-## 🛠️ Roadmap to Full Production
-
-The remaining steps to make the platform fully operational end-to-end:
-
-1. **Connect `cmd/server/main.go`:**
-   - Instantiate PostgreSQL connection pool (`pgx` / `database/sql`).
-   - Instantiate Redis client (`go-redis`).
-   - Initialize the WebSocket Hub (`pkg/websocket/hub.go`).
-   - Wire all domain handlers (`tenant`, `menu`, `order`, `payment`, `kds`) onto the HTTP router.
-2. **Execute Database Migrations:**
-   - Run `backend/db/migrations/000001_create_tenant_tables.up.sql`, `000002_create_menu_tables.up.sql`, and `000003_create_order_tables.up.sql`.
-   - Seed initial menu items (Shekla Tibs, Shiro, Kitfo) and tables.
-3. **Connect Frontend to Go API & WebSockets:**
-   - Replace in-memory states with HTTP `fetch` requests to `http://localhost:8080/api/v1/...`.
-   - Connect KDS and Waiter pages to `ws://localhost:8080/ws/...` so order tickets update live without page refreshing.
-4. **Configure Payment Webhooks:**
-   - Add live Chapa and Telebirr webhook endpoints with HMAC secret validation.
