@@ -364,29 +364,57 @@ export default function CashierRegisterPage() {
                       </span>
                     </div>
 
-                    {/* Paid or Not Status */}
+                    {/* Paid or Not Status & Waiter Alert Action */}
                     {isPaid ? (
-                      <div className="flex items-center space-x-2">
-                        <span className="px-3.5 py-1.5 rounded-full text-xs font-black uppercase tracking-wider bg-[#2D7A4D]/15 text-[#2D7A4D] border border-[#2D7A4D]/30 flex items-center space-x-1">
+                      <div className="space-y-1.5 w-full md:w-auto text-left md:text-right">
+                        <span className="px-3.5 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-[#2D7A4D]/15 text-[#2D7A4D] border border-[#2D7A4D]/30 inline-flex items-center space-x-1">
                           <span>✓ PAID</span>
                           {ord.provider !== "cash" && (
                             <span className="text-[10px] opacity-75">({ord.provider})</span>
                           )}
                         </span>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            alert(
+                              `🔔 Waiter Notified: Floor runners alerted that ${ord.tableLabel} items are ready for delivery!`
+                            )
+                          }
+                          className="w-full md:w-auto px-3 py-1.5 bg-[#faf2ee] hover:bg-[#ebdcd3] text-primary border border-[#ebdcd3] text-xs font-black rounded-xl transition-all flex items-center justify-center space-x-1"
+                          title="Ping Waiter Handheld App"
+                        >
+                          <span>🔔</span>
+                          <span>Notify Waiter (Ready)</span>
+                        </button>
                       </div>
                     ) : (
                       <div className="space-y-1.5 w-full md:w-auto">
                         <span className="inline-block px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-[#DC2626]/15 text-[#DC2626] border border-[#DC2626]/30">
                           ● UNPAID (Cash Pending)
                         </span>
-                        <button
-                          type="button"
-                          onClick={() => handleMarkPaid(ord.id)}
-                          className="w-full md:w-auto px-4 py-2.5 bg-[#2D7A4D] hover:bg-[#23603d] text-white text-xs font-black rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center space-x-1.5"
-                        >
-                          <span>💵</span>
-                          <span>Mark Cash Paid</span>
-                        </button>
+                        <div className="flex flex-col sm:flex-row gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleMarkPaid(ord.id)}
+                            className="w-full md:w-auto px-4 py-2 bg-[#2D7A4D] hover:bg-[#23603d] text-white text-xs font-black rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center space-x-1.5"
+                          >
+                            <span>💵</span>
+                            <span>Mark Paid</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              alert(
+                                `🔔 Waiter Notified: Floor runners alerted that ${ord.tableLabel} items are ready!`
+                              )
+                            }
+                            className="w-full md:w-auto px-3 py-2 bg-[#faf2ee] hover:bg-[#ebdcd3] text-primary border border-[#ebdcd3] text-xs font-black rounded-xl transition-all flex items-center justify-center space-x-1"
+                          >
+                            <span>🔔</span>
+                            <span>Ping Waiter</span>
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>

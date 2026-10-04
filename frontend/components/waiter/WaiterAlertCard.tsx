@@ -1,11 +1,18 @@
 "use client";
 
+interface WaiterItem {
+  name: string;
+  quantity: number;
+  customizations?: string[];
+}
+
 interface WaiterAlertCardProps {
   id: string;
   orderRef: string;
   tableLabel: string;
-  itemsSummary: string[];
+  items: WaiterItem[];
   readyAt: string;
+  source: "chef" | "cashier";
   onDeliver: (id: string) => void;
 }
 
@@ -13,45 +20,102 @@ export default function WaiterAlertCard({
   id,
   orderRef,
   tableLabel,
-  itemsSummary,
+  items,
   readyAt,
+  source,
   onDeliver,
 }: WaiterAlertCardProps) {
+  const isChef = source === "chef";
+
   return (
-    <div className="bg-white rounded-2xl p-5 border-l-8 border-l-yetsom-container border-y border-r border-buna/10 shadow-md text-left space-y-4">
-      {/* Alert Header */}
-      <div className="flex justify-between items-center border-b border-buna/10 pb-3">
-        <div>
-          <span className="text-xs uppercase font-bold tracking-wider text-yetsom-container block">
-            ● READY FOR DELIVERY
+    <div className="bg-white rounded-3xl p-5 border-2 border-[#ebdcd3] shadow-md hover:shadow-lg transition-all text-left space-y-4 relative overflow-hidden">
+      {/* Top Banner with Source (Chef vs Cashier) & Timer */}
+      <div className="flex items-center justify-between border-b border-[#ebdcd3] pb-3">
+        {/* Source Badge: Chef or Cashier */}
+        <div className="flex items-center space-x-1.5">
+          <span
+            className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center space-x-1 ${
+              isChef
+                ? "bg-[#9d3e0f]/15 text-[#9d3e0f] border border-[#9d3e0f]/30"
+                : "bg-emerald-100 text-emerald-800 border border-emerald-300"
+            }`}
+          >
+            <span>{isChef ? "👨‍🍳 Kitchen Pass (Chef)" : "💵 Counter / Bar (Cashier)"}</span>
           </span>
-          <h3 className="text-xl font-black text-buna">{tableLabel}</h3>
         </div>
+
+        {/* Ready Timer */}
+        <div className="flex items-center space-x-1 text-xs font-mono font-bold text-primary">
+          <span>⏱️</span>
+          <span>Ready {readyAt}</span>
+        </div>
+      </div>
+
+      {/* Prominent Table Number Banner */}
+      <div className="flex items-center justify-between bg-[#faf2ee] p-3.5 rounded-2xl border border-[#ebdcd3]">
+        <div>
+          <span className="text-[10px] font-black uppercase tracking-wider text-buna-mocha block">
+            Deliver To Location:
+          </span>
+          <span className="text-2xl font-black text-primary tracking-wide block mt-0.5">
+            {tableLabel}
+          </span>
+        </div>
+
         <div className="text-right">
-          <span className="text-xs text-buna-mocha font-mono block">Ref: {orderRef}</span>
-          <span className="text-[10px] text-buna-mocha block">{readyAt}</span>
+          <span className="text-[10px] font-mono text-buna-mocha block">
+            Ref: {orderRef}
+          </span>
+          <span className="text-[11px] font-bold text-buna bg-white px-2 py-0.5 rounded-md border border-[#ebdcd3] mt-1 inline-block">
+            {items.reduce((acc, i) => acc + i.quantity, 0)} Items Ready
+          </span>
         </div>
       </div>
 
-      {/* Item Summary */}
-      <div className="space-y-1">
-        <span className="text-xs font-bold text-buna-mocha uppercase block">Items to Deliver:</span>
-        <ul className="text-sm font-semibold text-buna space-y-1 list-disc pl-4">
-          {itemsSummary.map((item, idx) => (
-            <li key={idx}>{item}</li>
+      {/* Itemized Food & Drinks with Highlighted Customizations */}
+      <div className="space-y-2">
+        <span className="text-[11px] font-black text-buna-mocha uppercase tracking-wider block">
+          Dishes to Pick Up & Serve:
+        </span>
+        <div className="space-y-2 divide-y divide-[#ebdcd3]/40">
+          {items.map((item, idx) => (
+            <div key={idx} className="pt-2 first:pt-0 space-y-1">
+              <div className="flex items-baseline space-x-2 text-sm font-bold text-buna">
+                <span className="text-primary font-black">{item.quantity}x</span>
+                <span>{item.name}</span>
+              </div>
+
+              {/* Customizations tags */}
+              {item.customizations && item.customizations.length > 0 && (
+                <div className="flex flex-wrap gap-1 pl-5">
+                  {item.customizations.map((c, cIdx) => (
+                    <span
+                      key={cIdx}
+                      className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                        c.toLowerCase().includes("no ")
+                          ? "bg-red-100 text-red-700"
+                          : "bg-primary/10 text-primary"
+                      }`}
+                    >
+                      {c}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
           ))}
-        </ul>
+        </div>
       </div>
 
-      {/* Deliver Action Button */}
+      {/* Action Button: Mark Delivered to Table */}
       <div className="pt-1">
         <button
           type="button"
           onClick={() => onDeliver(id)}
-          className="w-full min-h-[48px] bg-primary text-white rounded-xl text-sm font-bold shadow-md hover:bg-primary-container transition-all flex items-center justify-center space-x-2"
+          className="w-full min-h-[50px] bg-primary hover:bg-primary-container text-white rounded-2xl text-sm font-black shadow-lg transition-all active:scale-[0.98] flex items-center justify-center space-x-2"
         >
-          <span>🚚</span>
-          <span>Mark Delivered to Table</span>
+          <span>🚀</span>
+          <span>MARK DELIVERED TO {tableLabel.toUpperCase()} ✓</span>
         </button>
       </div>
     </div>
