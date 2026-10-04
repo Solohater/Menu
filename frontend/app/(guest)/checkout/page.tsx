@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import OfflineBanner from "@/components/guest/OfflineBanner";
+import { loadActiveTrayLocal } from "@/lib/offline-storage";
 
 interface TrayItem {
   id: string;
@@ -11,6 +12,8 @@ interface TrayItem {
   final_price: number;
   quantity: number;
   is_available: boolean;
+  selected_addons?: Record<string, boolean>;
+  selected_removals?: Record<string, boolean>;
   special_instructions?: string;
 }
 
@@ -18,27 +21,43 @@ export default function TrayCheckoutPage() {
   const [items, setItems] = useState<TrayItem[]>([
     {
       id: "tray-1",
-      name_en: "Special Sizzling Shekla Tibs",
-      name_am: "የሸክላ ጥብስ",
-      final_price: 450,
+      name_en: "Classic Addis Cheeseburger",
+      name_am: "ክላሲክ አዲስ ቺዝበርገር",
+      final_price: 380,
       quantity: 1,
       is_available: true,
-      special_instructions: "Medium spice level, extra rosemary",
+      selected_removals: { "No Onions": true, "No Ketchup": true },
+      selected_addons: { "Extra Cheddar Cheese": true },
+      special_instructions: "Medium well, fries on side",
     },
     {
       id: "tray-2",
-      name_en: "Traditional Jebena Buna",
-      name_am: "የጀበና ቡና ሥነ ሥርዓት",
-      final_price: 60,
-      quantity: 2,
+      name_en: "Iced Caramel Macchiato",
+      name_am: "አይስድ ካራሜል ማኪያቶ",
+      final_price: 130,
+      quantity: 1,
       is_available: true,
+      selected_removals: { "No Ice": true },
     },
   ]);
+
+  useEffect(() => {
+    const saved = loadActiveTrayLocal();
+    if (saved && saved.length > 0) {
+      setItems(
+        saved.map((i: any) => ({
+          ...i,
+          is_available: true,
+        }))
+      );
+    }
+  }, []);
 
   const [selectedRail, setSelectedRail] = useState("telebirr");
   const [orderConfirmed, setOrderConfirmed] = useState<any>(null);
 
   const subtotal = items.reduce((acc, i) => acc + i.final_price * i.quantity, 0);
+  const totalItemCount = items.reduce((acc, i) => acc + i.quantity, 0);
   const serviceChargePct = 10.0;
   const vatPct = 15.0;
 
@@ -52,10 +71,10 @@ export default function TrayCheckoutPage() {
     if (selectedRail === "cash") {
       setOrderConfirmed({
         order_id: "MF-8942-T4",
-        status: "Received",
+        status: "Received by Kitchen & Cashier",
         payment_status: "unpaid",
         total: totalPayable,
-        message: "Order received by kitchen! Hand payment to waiter or cashier at your convenience.",
+        message: "Order dispatched to Kitchen chef and Cashier register! Please pay cash with the waiter or cashier counter.",
       });
     } else {
       setOrderConfirmed({
@@ -63,7 +82,7 @@ export default function TrayCheckoutPage() {
         status: "Payment Confirmed",
         payment_status: "paid",
         total: totalPayable,
-        message: `Payment authorized via ${selectedRail.toUpperCase()}. Preparing your order now!`,
+        message: `Payment authorized via ${selectedRail.toUpperCase()}. Dispatched to Kitchen chef and Cashier!`,
       });
     }
   };
@@ -126,49 +145,91 @@ export default function TrayCheckoutPage() {
     <div className="min-h-screen bg-[#fff8f5] text-buna font-sans p-4 max-w-lg mx-auto space-y-5 pb-24">
       <OfflineBanner />
 
-      {/* Mobile Sticky Top Header */}
+      {/* Mobile Sticky Top Header with Top Cart Icon */}
       <header className="flex justify-between items-center border-b border-[#ebdcd3]/70 pb-3 pt-1">
         <Link href="/t/demo_token/menu" className="flex items-center space-x-1.5 text-xs font-bold text-primary hover:underline">
           <span>← Back to Menu</span>
         </Link>
-        <span className="bg-[#ebdcd3] text-primary text-[11px] font-extrabold px-3 py-1 rounded-full">
-          Table 04
-        </span>
+        <div className="flex items-center space-x-2">
+          <span className="bg-[#ebdcd3] text-primary text-[11px] font-extrabold px-3 py-1 rounded-full">
+            Table 04
+          </span>
+          <div className="relative flex items-center justify-center w-8 h-8 rounded-xl bg-white border border-[#ebdcd3] shadow-sm text-buna">
+            <span className="text-sm">🛒</span>
+            {totalItemCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-0.5 rounded-full bg-primary text-white text-[9px] font-black flex items-center justify-center shadow">
+                {totalItemCount}
+              </span>
+            )}
+          </div>
+        </div>
       </header>
 
       {/* Order Title */}
       <div>
         <h1 className="text-2xl font-black text-buna tracking-tight">Review Tray & Checkout</h1>
         <p className="text-xs text-buna-mocha font-medium mt-0.5">
-          Verify your dishes and select local Ethiopian payment method.
+          Verify your customized foods & drinks before payment.
         </p>
       </div>
 
       {/* Item Lines Card */}
       <div className="bg-white rounded-3xl border border-[#ebdcd3] p-5 shadow-sm space-y-3">
         <span className="text-[11px] font-bold text-buna-mocha uppercase tracking-wider block border-b border-[#ebdcd3]/50 pb-2">
-          Your Selected Dishes ({items.length})
+          Your Tray Dishes & Drinks ({items.length})
         </span>
 
         <div className="divide-y divide-[#ebdcd3]/50">
-          {items.map((item) => (
-            <div key={item.id} className="py-3 flex justify-between items-center">
-              <div className="space-y-0.5">
-                <span className="text-sm font-bold text-buna block">{item.name_en}</span>
-                <span className="text-[11px] text-primary font-semibold gees-text block" lang="am">
-                  {item.name_am} • Qty: {item.quantity}
-                </span>
-                {item.special_instructions && (
-                  <span className="text-[10px] text-buna-mocha italic block">
-                    "{item.special_instructions}"
+          {items.map((item) => {
+            const removals = item.selected_removals
+              ? Object.keys(item.selected_removals).filter((k) => item.selected_removals![k])
+              : [];
+            const addons = item.selected_addons
+              ? Object.keys(item.selected_addons).filter((k) => item.selected_addons![k])
+              : [];
+
+            return (
+              <div key={item.id} className="py-3 flex justify-between items-start space-x-2">
+                <div className="space-y-1 text-left flex-1">
+                  <span className="text-sm font-bold text-buna block">{item.name_en}</span>
+                  <span className="text-[11px] text-primary font-semibold gees-text block" lang="am">
+                    {item.name_am} • Qty: {item.quantity}
                   </span>
-                )}
+
+                  {/* Render Removals Badges */}
+                  {removals.length > 0 && (
+                    <div className="flex flex-wrap gap-1 pt-0.5">
+                      {removals.map((r) => (
+                        <span key={r} className="text-[10px] font-bold text-red-700 bg-red-100 px-1.5 py-0.5 rounded">
+                          ❌ {r}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Render Addons Badges */}
+                  {addons.length > 0 && (
+                    <div className="flex flex-wrap gap-1 pt-0.5">
+                      {addons.map((a) => (
+                        <span key={a} className="text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                          ➕ {a}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {item.special_instructions && (
+                    <span className="text-[10px] text-buna-mocha italic block bg-[#faf2ee] p-1 rounded border border-[#ebdcd3]">
+                      📝 "{item.special_instructions}"
+                    </span>
+                  )}
+                </div>
+                <span className="text-sm font-black text-buna shrink-0">
+                  ETB {item.final_price * item.quantity}
+                </span>
               </div>
-              <span className="text-sm font-black text-buna">
-                ETB {item.final_price * item.quantity}
-              </span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 

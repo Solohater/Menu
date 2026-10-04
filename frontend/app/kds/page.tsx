@@ -17,6 +17,8 @@ interface KDSOrder {
     name_am?: string;
     quantity: number;
     options?: string[];
+    removals?: string[];
+    special_instructions?: string;
   }[];
 }
 
@@ -29,11 +31,25 @@ export default function KDSPage() {
       tableNumber: "04",
       status: "Received",
       paymentStatus: "paid",
-      initialSeconds: 240, // 4 mins
+      initialSeconds: 95, // 1 min 35s
       items: [
-        { id: "i1", name_en: "Doro Wat", name_am: "የዶሮ ወጥ", quantity: 1 },
-        { id: "i2", name_en: "Tikil Gomen", name_am: "ጥቅል ጎመን", quantity: 2 },
-        { id: "i3", name_en: "Ayib", name_am: "አይብ", quantity: 1 },
+        {
+          id: "i1",
+          name_en: "Classic Addis Cheeseburger",
+          name_am: "ክላሲክ አዲስ ቺዝበርገር",
+          quantity: 1,
+          removals: ["NO ONIONS", "NO KETCHUP"],
+          options: ["Extra Cheddar Cheese"],
+          special_instructions: "Medium well, fries on side",
+        },
+        {
+          id: "i2",
+          name_en: "Iced Caramel Macchiato",
+          name_am: "አይስድ ካራሜል ማኪያቶ",
+          quantity: 1,
+          removals: ["NO ICE"],
+          options: ["Oat Milk Swap"],
+        },
       ],
     },
     {
@@ -44,9 +60,16 @@ export default function KDSPage() {
       paymentStatus: "paid",
       initialSeconds: 723, // 12 mins 03 secs (Aging warning)
       items: [
-        { id: "i4", name_en: "Shekla Tibs", name_am: "የሸክላ ጥብስ", quantity: 2, options: ["Medium Spice"] },
-        { id: "i5", name_en: "Beyaynetu", name_am: "የፍስክ በያይነቱ", quantity: 3 },
-        { id: "i6", name_en: "Gomen", name_am: "ጎመን", quantity: 1 },
+        {
+          id: "i4",
+          name_en: "Special Shekla Tibs",
+          name_am: "የሸክላ ጥብስ",
+          quantity: 2,
+          removals: ["NO JALAPEÑOS / MILD"],
+          options: ["Extra Spiced Butter (ቅቤ)"],
+          special_instructions: "Serve extra hot in clay pot",
+        },
+        { id: "i5", name_en: "Traditional Jebena Buna", name_am: "የጀበና ቡና", quantity: 2 },
       ],
     },
     {
@@ -57,8 +80,15 @@ export default function KDSPage() {
       paymentStatus: "unpaid",
       initialSeconds: 480, // 8 mins
       items: [
-        { id: "i7", name_en: "Kitfo Special", name_am: "ልዩ ክትፎ", quantity: 1, options: ["Leb-leb", "Extra Kocho"] },
-        { id: "i8", name_en: "Jebena Buna", name_am: "የጀበና ቡና", quantity: 2 },
+        {
+          id: "i7",
+          name_en: "Smoky BBQ Bacon Burger",
+          name_am: "ስሞኪ ቢቢኪው ቤከን በርገር",
+          quantity: 1,
+          removals: ["NO ONIONS"],
+          options: ["Extra Beef Bacon"],
+        },
+        { id: "i8", name_en: "Fresh Avocado Mango Spris", name_am: "አቮካዶ ማንጎ ስፕሪስ", quantity: 1, removals: ["NO SUGAR"] },
       ],
     },
   ]);

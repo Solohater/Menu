@@ -10,6 +10,10 @@ export interface TrayItem {
   name_am: string;
   final_price: number;
   quantity: number;
+  is_available?: boolean;
+  selected_addons?: Record<string, boolean>;
+  selected_removals?: Record<string, boolean>;
+  selected_variant?: string;
   special_instructions?: string;
 }
 
@@ -47,18 +51,23 @@ export function saveActiveTrayLocal(sessionToken: string, items: TrayItem[]): vo
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(`${TRAY_CACHE_KEY}_${sessionToken}`, JSON.stringify(items));
+    localStorage.setItem(`${TRAY_CACHE_KEY}_latest`, JSON.stringify(items));
   } catch (err) {
     console.warn("offline-storage: failed to save draft tray to localStorage", err);
   }
 }
 
 // Load active draft tray items from local storage
-export function loadActiveTrayLocal(sessionToken: string): TrayItem[] {
+export function loadActiveTrayLocal(sessionToken?: string): TrayItem[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = localStorage.getItem(`${TRAY_CACHE_KEY}_${sessionToken}`);
-    if (!raw) return [];
-    return JSON.parse(raw) as TrayItem[];
+    if (sessionToken) {
+      const raw = localStorage.getItem(`${TRAY_CACHE_KEY}_${sessionToken}`);
+      if (raw) return JSON.parse(raw) as TrayItem[];
+    }
+    const latestRaw = localStorage.getItem(`${TRAY_CACHE_KEY}_latest`);
+    if (latestRaw) return JSON.parse(latestRaw) as TrayItem[];
+    return [];
   } catch (err) {
     console.warn("offline-storage: failed to load draft tray from localStorage", err);
     return [];

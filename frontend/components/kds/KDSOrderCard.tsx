@@ -8,6 +8,7 @@ interface KDSItem {
   name_am?: string;
   quantity: number;
   options?: string[];
+  removals?: string[];
   special_instructions?: string;
 }
 
@@ -101,10 +102,10 @@ export default function KDSOrderCard({
         </div>
 
         {/* Dish Items List with Quantities on Right */}
-        <div className="p-5 space-y-3 divide-y divide-white/5">
+        <div className="p-5 space-y-3.5 divide-y divide-white/5">
           {items.map((item) => (
             <div key={item.id} className="pt-2 first:pt-0 flex items-start justify-between">
-              <div className="pr-3">
+              <div className="pr-3 space-y-1">
                 <span className="text-lg font-bold text-white block leading-snug">
                   {item.name_en}
                 </span>
@@ -113,16 +114,41 @@ export default function KDSOrderCard({
                     {item.name_am}
                   </span>
                 )}
+
+                {/* Removals Badges (Crucial for Chef: NO ONIONS, NO KETCHUP) */}
+                {item.removals && item.removals.length > 0 && (
+                  <div className="flex flex-wrap gap-1 pt-0.5">
+                    {item.removals.map((rem, i) => (
+                      <span
+                        key={i}
+                        className="text-[11px] font-black tracking-wide text-[#fecaca] bg-[#dc2626] px-2 py-0.5 rounded shadow-sm"
+                      >
+                        ❌ {rem}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Add-ons / Options */}
                 {item.options && item.options.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-1">
+                  <div className="flex flex-wrap gap-1 pt-0.5">
                     {item.options.map((opt, i) => (
                       <span
                         key={i}
-                        className="text-[10px] font-semibold text-[#fbbf24] bg-[#f59e0b]/10 px-1.5 py-0.5 rounded"
+                        className="text-[10px] font-extrabold text-[#fbbf24] bg-[#f59e0b]/20 border border-[#f59e0b]/30 px-1.5 py-0.5 rounded"
                       >
                         + {opt}
                       </span>
                     ))}
+                  </div>
+                )}
+
+                {/* Special Kitchen Note */}
+                {item.special_instructions && (
+                  <div className="bg-[#262626] border border-[#f59e0b]/40 rounded-lg p-1.5 mt-1">
+                    <span className="text-[11px] text-[#fde047] font-semibold italic block">
+                      📝 Note: "{item.special_instructions}"
+                    </span>
                   </div>
                 )}
               </div>
