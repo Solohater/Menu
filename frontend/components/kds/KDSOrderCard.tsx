@@ -78,85 +78,103 @@ export default function KDSOrderCard({
     <div
       className={`bg-[#171717] rounded-2xl border-2 ${cardBorder} flex flex-col justify-between overflow-hidden shadow-2xl transition-all duration-200 min-h-[380px] max-w-sm w-full`}
     >
-      {/* Top Header Banner with Order # and Table Number */}
+      {/* Top Header Banner with Order # and Huge Table Number */}
       <div>
-        <div className={`${headerBg} px-5 py-3.5 flex items-center justify-between border-b border-white/10`}>
-          <div>
-            <span className={`text-base font-black tracking-wider uppercase block ${headerText}`}>
+        <div className={`${headerBg} px-5 py-4 flex items-center justify-between border-b border-white/10`}>
+          <div className="space-y-0.5">
+            <div className="flex items-center space-x-2">
+              <span className="text-xl sm:text-2xl font-black tracking-widest text-[#38bdf8] bg-black/40 px-3 py-1 rounded-xl border border-[#38bdf8]/40 shadow-inner">
+                TABLE {tableNumber}
+              </span>
+            </div>
+            <span className="text-[11px] font-mono font-bold tracking-wider text-[#d4d4d4] block pt-1">
               ORDER #{orderNumber}
-            </span>
-            <span className="text-xs font-black tracking-widest uppercase text-[#38bdf8] block mt-0.5">
-              TABLE {tableNumber}
             </span>
           </div>
 
           <span
-            className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+            className={`text-[11px] font-black uppercase px-2.5 py-1 rounded-full ${
               paymentStatus === "paid"
-                ? "bg-[#22c55e]/20 text-[#4ade80]"
-                : "bg-[#f59e0b]/20 text-[#fbbf24]"
+                ? "bg-[#22c55e]/20 text-[#4ade80] border border-[#22c55e]/30"
+                : "bg-[#f59e0b]/20 text-[#fbbf24] border border-[#f59e0b]/30"
             }`}
           >
             {paymentStatus === "paid" ? "PAID" : "UNPAID"}
           </span>
         </div>
 
-        {/* Dish Items List with Quantities on Right */}
-        <div className="p-5 space-y-3.5 divide-y divide-white/5">
+        {/* Dish Items List with Quantities & High-Contrast Customizations */}
+        <div className="p-5 space-y-4 divide-y divide-white/10">
           {items.map((item) => (
-            <div key={item.id} className="pt-2 first:pt-0 flex items-start justify-between">
-              <div className="pr-3 space-y-1">
-                <span className="text-lg font-bold text-white block leading-snug">
-                  {item.name_en}
-                </span>
+            <div key={item.id} className="pt-3 first:pt-0 flex items-start justify-between">
+              <div className="pr-3 space-y-1.5 flex-1">
+                <div className="flex items-baseline space-x-2">
+                  <span className="text-lg sm:text-xl font-black text-white block leading-snug">
+                    {item.name_en}
+                  </span>
+                </div>
+
                 {item.name_am && (
-                  <span className="text-xs text-[#a3a3a3] block gees-text" lang="am">
+                  <span className="text-xs text-[#a3a3a3] block gees-text font-semibold" lang="am">
                     {item.name_am}
                   </span>
                 )}
 
-                {/* Removals Badges (Crucial for Chef: NO ONIONS, NO KETCHUP) */}
-                {item.removals && item.removals.length > 0 && (
-                  <div className="flex flex-wrap gap-1 pt-0.5">
-                    {item.removals.map((rem, i) => (
-                      <span
-                        key={i}
-                        className="text-[11px] font-black tracking-wide text-[#fecaca] bg-[#dc2626] px-2 py-0.5 rounded shadow-sm"
-                      >
-                        ❌ {rem}
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                {/* Add-ons / Options */}
-                {item.options && item.options.length > 0 && (
-                  <div className="flex flex-wrap gap-1 pt-0.5">
-                    {item.options.map((opt, i) => (
-                      <span
-                        key={i}
-                        className="text-[10px] font-extrabold text-[#fbbf24] bg-[#f59e0b]/20 border border-[#f59e0b]/30 px-1.5 py-0.5 rounded"
-                      >
-                        + {opt}
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                {/* Special Kitchen Note */}
-                {item.special_instructions && (
-                  <div className="bg-[#262626] border border-[#f59e0b]/40 rounded-lg p-1.5 mt-1">
-                    <span className="text-[11px] text-[#fde047] font-semibold italic block">
-                      📝 Note: "{item.special_instructions}"
+                {/* CUSTOMER CUSTOMIZATION HIGHLIGHT BOX */}
+                {((item.removals && item.removals.length > 0) ||
+                  (item.options && item.options.length > 0) ||
+                  item.special_instructions) && (
+                  <div className="bg-[#241a13] border-2 border-[#f59e0b]/50 rounded-xl p-2.5 space-y-1.5 mt-2 shadow-md">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 block">
+                      ⚡ Customer Customization:
                     </span>
+
+                    {/* Removals / What customer DOES NOT want in RED */}
+                    {item.removals && item.removals.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {item.removals.map((rem, i) => (
+                          <span
+                            key={i}
+                            className="text-xs font-black tracking-wide text-white bg-[#dc2626] border border-[#ef4444] px-2 py-0.5 rounded shadow-sm"
+                          >
+                            🚫 {rem}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Add-ons / What customer WANTS EXTRA in AMBER */}
+                    {item.options && item.options.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {item.options.map((opt, i) => (
+                          <span
+                            key={i}
+                            className="text-xs font-black tracking-wide text-[#fef08a] bg-[#854d0e] border border-[#ca8a04] px-2 py-0.5 rounded shadow-sm"
+                          >
+                            ⭐ + {opt}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Special Chef Kitchen Instructions */}
+                    {item.special_instructions && (
+                      <div className="bg-[#171717] border border-amber-400/40 rounded-lg p-2">
+                        <span className="text-xs font-black text-amber-300 italic block leading-relaxed">
+                          👨‍🍳 Special Note: "{item.special_instructions}"
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
 
-              {/* Large Quantity on Right */}
-              <span className="text-2xl font-black text-white shrink-0 pl-2">
-                {item.quantity}
-              </span>
+              {/* Large Quantity Badge on Right */}
+              <div className="shrink-0 pl-3 text-center">
+                <span className="text-2xl sm:text-3xl font-black text-white bg-white/10 px-3 py-1 rounded-xl block border border-white/20">
+                  {item.quantity}x
+                </span>
+              </div>
             </div>
           ))}
         </div>
