@@ -8,6 +8,7 @@ import ActiveTrayDock from "@/components/guest/ActiveTrayDock";
 import ActiveTrayDrawer from "@/components/guest/ActiveTrayDrawer";
 import OfflineBanner from "@/components/guest/OfflineBanner";
 import QRErrorCard from "@/components/guest/QRErrorCard";
+import ServiceRequestModal from "@/components/guest/ServiceRequestModal";
 import { loadActiveTrayLocal, saveActiveTrayLocal } from "@/lib/offline-storage";
 
 interface LandingProps {
@@ -28,6 +29,7 @@ export default function TableQRLandingPage({ params }: LandingProps) {
   const [isTrayDrawerOpen, setIsTrayDrawerOpen] = useState(false);
   const [trayItems, setTrayItems] = useState<any[]>([]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
 
   useEffect(() => {
     if (params.token.includes("invalid")) {
@@ -644,6 +646,17 @@ export default function TableQRLandingPage({ params }: LandingProps) {
             </button>
           </div>
 
+          {/* Waiter Assistance Bell Button */}
+          <button
+            type="button"
+            onClick={() => setIsServiceModalOpen(true)}
+            className="relative flex items-center justify-center w-10 h-10 rounded-2xl bg-white border border-[#ebdcd3] shadow-sm hover:bg-[#faf2ee] active:scale-95 transition-all text-buna"
+            aria-label="Call Waiter, Request Water or Bill"
+            title="Need assistance? Call Waiter, Water, Bill"
+          >
+            <span className="text-xl">🛎️</span>
+          </button>
+
           {/* Top Cart Icon Button - As Requested by User */}
           <button
             type="button"
@@ -963,6 +976,13 @@ export default function TableQRLandingPage({ params }: LandingProps) {
         onClose={() => setIsTrayDrawerOpen(false)}
         onUpdateQuantity={handleUpdateQuantity}
         onCheckout={handleGoToPayment}
+      />
+
+      {/* Table Service Assistance Modal */}
+      <ServiceRequestModal
+        isOpen={isServiceModalOpen}
+        tableLabel={resolved.label}
+        onClose={() => setIsServiceModalOpen(false)}
       />
     </div>
   );

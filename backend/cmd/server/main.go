@@ -5,11 +5,15 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
+	"menuflow/backend/internal/kds"
 	"menuflow/backend/internal/menu"
+	"menuflow/backend/internal/notification"
 	"menuflow/backend/internal/order"
 	"menuflow/backend/internal/tenant"
+	pkgws "menuflow/backend/pkg/websocket"
 )
 
 type HealthResponse struct {
@@ -23,7 +27,7 @@ func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Sec-WebSocket-Key, Sec-WebSocket-Version, Sec-WebSocket-Extensions")
 
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusOK)
@@ -37,17 +41,27 @@ func corsMiddleware(next http.Handler) http.Handler {
 func main() {
 	mux := http.NewServeMux()
 
-	// Initialize repositories and caches
+	// 1. Initialize real-time WebSocket Hub
+	hub := pkgws.NewHub()
+
+	// 2. Initialize Repositories
 	menuRepo := menu.NewMemoryRepository()
 	menuCache := menu.NewCache()
 	menuHandler := menu.NewHandler(menuRepo, menuCache)
 
+	kdsRepo := kds.NewMemoryRepository()
+	kdsHandler := kds.NewHandler(kdsRepo, hub)
+
 	orderRepo := order.NewMemoryRepository()
-	orderHandler := order.NewHandler(orderRepo)
+	orderHandler := order.NewHandler(orderRepo).WithKDS(kdsRepo, hub)
 
 	tenantRepo := tenant.NewMemoryRepository()
 	tenantSecret := "menuflow_dev_secret_key_32bytes!"
 	tenantHandler := tenant.NewHandler(tenantRepo, tenantSecret)
+
+	notifRouter := notification.NewRouter(hub)
+	serviceRepo := notification.NewMemoryServiceRequestRepository()
+	notifHandler := notification.NewHandler(notifRouter, serviceRepo, hub)
 
 	// Health Check
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -55,26 +69,58 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(HealthResponse{
 			Status:    "ok",
-			Service:   "MenuFlow Go API",
+			Service:   "MenuFlow Go API with Live WebSockets",
 			Timestamp: time.Now().UTC(),
 		})
 	})
 
-	// Order & Sales Analytics Endpoints (Dashboard Card 1)
+	// WebSocket Endpoint (Native RFC 6455 upgrades)
+	handleWS := func(w http.ResponseWriter, r *http.Request) {
+		pkgws.ServeWS(hub, w, r)
+	}
+	mux.HandleFunc("/ws", handleWS)
+	mux.HandleFunc("/api/v1/ws", handleWS)
+	mux.HandleFunc("/api/v1/ws/staff", handleWS)
+
+	// Order & Sales Analytics Endpoints
 	mux.HandleFunc("/api/v1/admin/orders/sales-summary", orderHandler.HandleGetSalesSummary)
 	mux.HandleFunc("/api/v1/orders/create", orderHandler.HandleCreateOrder)
+	mux.HandleFunc("/api/v1/orders/get", orderHandler.HandleGetOrder)
+	mux.HandleFunc("/api/v1/orders/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			orderHandler.HandleGetOrder(w, r)
+			return
+		}
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+	})
 
-	// Menu & Stock Manager Endpoints (Dashboard Card 3)
+	// KDS Live Ticket Pipeline Endpoints
+	mux.HandleFunc("/api/v1/kds/orders/active", kdsHandler.HandleGetActiveOrders)
+	mux.HandleFunc("/api/v1/kds/orders/status", kdsHandler.HandleUpdateStatus)
+	mux.HandleFunc("/api/v1/kds/orders/bump", kdsHandler.HandleUpdateStatus)
+	mux.HandleFunc("/api/v1/kds/events", kdsHandler.HandleGetKDSEvents)
+
+	// Waiter Runner & Service Requests Endpoints
+	mux.HandleFunc("/api/v1/waiter/deliver", notifHandler.HandleDeliverOrder)
+	mux.HandleFunc("/api/v1/guest/service-request", notifHandler.HandleCreateServiceRequest)
+	mux.HandleFunc("/api/v1/waiter/service-requests", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPatch || (r.Method == http.MethodPost && strings.Contains(r.URL.Path, "resolve")) {
+			notifHandler.HandleUpdateServiceRequest(w, r)
+			return
+		}
+		notifHandler.HandleGetServiceRequests(w, r)
+	})
+
+	// Menu & Stock Manager Endpoints
 	mux.HandleFunc("/api/v1/guest/menu", menuHandler.HandleGetGuestMenu)
 	mux.HandleFunc("/api/v1/admin/menu/prices/bulk", menuHandler.HandleBulkPrices)
 
-	// Tables & Settings Endpoints (Dashboard Card 2)
+	// Tables & Settings Endpoints
 	mux.HandleFunc("/api/v1/admin/tables", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
 			tenantHandler.HandleCreateTable(w, r)
 			return
 		}
-		// Default response for list of active tables
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]interface{}{
@@ -96,7 +142,7 @@ func main() {
 	handlerWithCORS := corsMiddleware(mux)
 
 	port := ":8080"
-	fmt.Printf("MenuFlow Go Backend Monolith starting on %s...\n", port)
+	fmt.Printf("MenuFlow Go Backend Monolith starting on %s with WebSocket Hub...\n", port)
 	if err := http.ListenAndServe(port, handlerWithCORS); err != nil {
 		log.Fatalf("Server failed to start: %v", err)
 	}

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import KDSOrderCard from "@/components/kds/KDSOrderCard";
+import { MenuFlowWebSocketClient } from "@/lib/websocket";
 
 interface KDSOrder {
   id: string;
@@ -24,6 +25,7 @@ interface KDSOrder {
 
 export default function KDSPage() {
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [wsConnected, setWsConnected] = useState(false);
   const [orders, setOrders] = useState<KDSOrder[]>([
     {
       id: "ord-154",
@@ -93,15 +95,156 @@ export default function KDSPage() {
     },
   ]);
 
-  const handleBump = (id: string) => {
-    // Play subtle audio ping emulation if sound is enabled
-    setOrders((prev) => prev.filter((o) => o.id !== id));
+  // Audio chime synthesizer
+  const playAudioChime = (frequency = 600, duration = 0.2) => {
+    if (!soundEnabled || typeof window === "undefined") return;
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(frequency, ctx.currentTime);
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + duration);
+    } catch {
+      // Audio autoplay policy handled silently
+    }
+  };
+
+  // 1. Fetch live active orders from backend on mount
+  useEffect(() => {
+    async function loadActiveOrders() {
+      try {
+        const backendUrl = typeof window !== "undefined"
+          ? `${window.location.protocol}//${window.location.hostname}:8080/api/v1/kds/orders/active`
+          : "http://localhost:8080/api/v1/kds/orders/active";
+
+        const res = await fetch(backendUrl);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.active_orders && data.active_orders.length > 0) {
+            const mapped: KDSOrder[] = data.active_orders.map((o: any) => ({
+              id: o.id,
+              orderNumber: o.order_ref ? o.order_ref.split("-")[1] || o.id.slice(-3) : o.id.slice(-3),
+              tableNumber: o.table_label ? o.table_label.replace("Table ", "") : "04",
+              status: o.status === "Preparing" ? "Cooking" : o.status,
+              paymentStatus: o.payment_status || "paid",
+              initialSeconds: (o.elapsed_mins || 1) * 60,
+              items: (o.items || []).map((it: any) => ({
+                id: it.id,
+                name_en: it.name_en,
+                name_am: it.name_am,
+                quantity: it.quantity,
+                options: it.options || [],
+                special_instructions: it.special_instructions,
+              })),
+            }));
+
+            // Merge with default orders to avoid duplicates
+            setOrders((prev) => {
+              const existingIds = new Set(prev.map((x) => x.id));
+              const newItems = mapped.filter((x) => !existingIds.has(x.id));
+              return [...newItems, ...prev];
+            });
+          }
+        }
+      } catch (err) {
+        console.warn("kds: failed to fetch active orders from backend", err);
+      }
+    }
+
+    loadActiveOrders();
+  }, []);
+
+  // 2. Connect to real-time WebSocket for new orders & bump broadcasts
+  useEffect(() => {
+    const ws = new MenuFlowWebSocketClient("restaurant:01J8RESTAURANT000000000001:kds");
+    ws.connect((msg) => {
+      setWsConnected(true);
+      if (msg && msg.event_type === "order.created" && msg.payload) {
+        const p = msg.payload;
+        playAudioChime(750, 0.3); // High ping for new incoming kitchen order
+
+        const newOrder: KDSOrder = {
+          id: p.id,
+          orderNumber: p.id ? p.id.slice(-3) : `${Math.floor(100 + Math.random() * 900)}`,
+          tableNumber: p.table_id || "04",
+          status: "Received",
+          paymentStatus: p.payment_status || "paid",
+          initialSeconds: 0,
+          items: (p.items || []).map((it: any) => ({
+            id: it.id || `i-${Math.random()}`,
+            name_en: it.menu_item_id || "Special Dish",
+            name_am: it.menu_item_id || "ምግብ",
+            quantity: it.quantity || 1,
+            special_instructions: it.special_instructions,
+          })),
+        };
+
+        setOrders((prev) => [newOrder, ...prev.filter((o) => o.id !== newOrder.id)]);
+      }
+    });
+
+    return () => {
+      ws.disconnect();
+    };
+  }, [soundEnabled]);
+
+  const handleBump = async (id: string) => {
+    const target = orders.find((o) => o.id === id);
+    if (!target) return;
+
+    playAudioChime(450, 0.15); // Tactile bump click sound
+
+    if (target.status === "Received") {
+      // Transition from Received -> Cooking
+      setOrders((prev) =>
+        prev.map((o) => (o.id === id ? { ...o, status: "Cooking" } : o))
+      );
+
+      try {
+        const backendUrl = typeof window !== "undefined"
+          ? `${window.location.protocol}//${window.location.hostname}:8080/api/v1/kds/orders/status?id=${id}`
+          : `http://localhost:8080/api/v1/kds/orders/status?id=${id}`;
+
+        await fetch(backendUrl, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ from_status: "Received", to_status: "Preparing" }),
+        });
+      } catch (err) {
+        console.warn("kds bump status sync error", err);
+      }
+    } else {
+      // Transition from Cooking -> Ready (Dish is ready for floor runner!)
+      setOrders((prev) => prev.filter((o) => o.id !== id));
+
+      try {
+        const backendUrl = typeof window !== "undefined"
+          ? `${window.location.protocol}//${window.location.hostname}:8080/api/v1/kds/orders/status?id=${id}`
+          : `http://localhost:8080/api/v1/kds/orders/status?id=${id}`;
+
+        await fetch(backendUrl, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ from_status: "Preparing", to_status: "Ready" }),
+        });
+      } catch (err) {
+        console.warn("kds ready status sync error", err);
+      }
+    }
   };
 
   return (
     <div className="min-h-screen bg-[#121110] text-white font-sans select-none flex flex-col justify-between p-4 sm:p-6 lg:p-8">
       <div>
-        {/* Tablet Top Navigation Bar (Matching Mockup) */}
+        {/* Tablet Top Navigation Bar */}
         <header className="flex items-center justify-between border-b border-white/10 pb-4 mb-6">
           {/* Back Navigation Button */}
           <Link
@@ -116,30 +259,23 @@ export default function KDSPage() {
 
           {/* Centered KDS Title */}
           <div className="text-center">
-            <h1 className="text-2xl sm:text-3xl font-black tracking-widest uppercase text-white">
-              KDS
-            </h1>
+            <div className="flex items-center justify-center space-x-2">
+              <h1 className="text-2xl sm:text-3xl font-black tracking-widest uppercase text-white">
+                KDS
+              </h1>
+              <span className={`w-2 h-2 rounded-full ${wsConnected ? "bg-[#22c55e] animate-ping" : "bg-amber-400"}`} />
+            </div>
             <span className="text-[10px] text-[#a3a3a3] uppercase tracking-wider font-semibold block">
-              Kitchen Display Pass • Bole Kitchen
+              Kitchen Display Pass • Bole Kitchen {wsConnected && "• Live Stream Active"}
             </span>
           </div>
 
           {/* Right Action Icons: Notification, Settings, Volume */}
           <div className="flex items-center space-x-2">
-            <button
-              onClick={() => alert("Notification center: 3 active table orders.")}
-              className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-white transition-colors"
-              title="Alert Notifications"
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-              </svg>
-            </button>
-
             <Link
               href="/admin/settings"
               className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-white transition-colors"
-              title="Kitchen Settings"
+              title="KDS Operational Settings"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -148,27 +284,30 @@ export default function KDSPage() {
             </Link>
 
             <button
-              onClick={() => setSoundEnabled(!soundEnabled)}
-              className={`w-10 h-10 rounded-xl border flex items-center justify-center transition-colors ${
+              onClick={() => {
+                setSoundEnabled(!soundEnabled);
+                if (!soundEnabled) playAudioChime(600, 0.2);
+              }}
+              className={`w-10 h-10 rounded-xl border flex items-center justify-center transition-all ${
                 soundEnabled
-                  ? "bg-white/10 border-white/20 text-white"
-                  : "bg-red-500/10 border-red-500/20 text-red-400"
+                  ? "bg-primary text-white border-primary shadow-lg shadow-primary/20"
+                  : "bg-white/5 text-[#a3a3a3] border-white/10"
               }`}
-              title={soundEnabled ? "Audio Chime Enabled" : "Audio Muted"}
+              title={soundEnabled ? "Audio chime ON" : "Audio chime MUTED"}
             >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-              </svg>
+              <span className="text-sm">{soundEnabled ? "🔔" : "🔕"}</span>
             </button>
           </div>
         </header>
 
-        {/* Live Order Queue (Horizontal Tablet Scrolling Grid) */}
+        {/* Live Ticket Orders Grid */}
         {orders.length === 0 ? (
           <div className="py-24 text-center space-y-3">
-            <span className="text-5xl block animate-bounce">🎉</span>
-            <h2 className="text-2xl font-black text-white">All Kitchen Orders Cleared!</h2>
-            <p className="text-sm text-[#a3a3a3]">New guest orders will chime and appear here in real time.</p>
+            <span className="text-5xl block">🍳</span>
+            <h3 className="text-xl font-bold text-white">All Clear, Chef!</h3>
+            <p className="text-xs text-[#a3a3a3]">
+              No pending orders in the kitchen queue. New tickets will appear automatically via live WebSockets.
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-start">
@@ -189,19 +328,14 @@ export default function KDSPage() {
         )}
       </div>
 
-      {/* Bottom Status Bar */}
-      <footer className="border-t border-white/10 pt-4 mt-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#a3a3a3]">
+      {/* Footer Info Bar */}
+      <footer className="mt-8 pt-4 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between text-xs text-[#a3a3a3] gap-2">
         <div className="flex items-center space-x-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#22c55e] animate-pulse" />
-          <span className="font-bold text-white">Live WebSocket Stream Connected</span>
-          <span>•</span>
-          <span>{orders.length} Active Tickets</span>
+          <span className="w-2.5 h-2.5 rounded-full bg-[#22c55e]" />
+          <span>Active Kitchen Queue: <strong className="text-white">{orders.length} Tickets</strong></span>
         </div>
-
-        <div className="flex items-center space-x-4">
-          <span className="text-[#f59e0b] font-bold">🟡 &gt;8m Warning</span>
-          <span className="text-[#ef4444] font-bold">🔴 &gt;15m Expedite</span>
-          <span className="font-mono text-white font-black">16:20 EAT</span>
+        <div>
+          <span>Tap <strong>Bump</strong> once to start cooking, tap again when ready for table runner.</span>
         </div>
       </footer>
     </div>

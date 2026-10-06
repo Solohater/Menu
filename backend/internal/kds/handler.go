@@ -93,6 +93,10 @@ func (h *Handler) HandleUpdateStatus(w http.ResponseWriter, r *http.Request) {
 	topic := "restaurant:" + restaurantID + ":kds"
 	if h.hub != nil {
 		_ = h.hub.Broadcast(topic, "kds.order.status_updated", updated)
+		_ = h.hub.Broadcast("order:"+orderID+":status", "order.status_updated", updated)
+		if req.ToStatus == "Ready" {
+			_ = h.hub.Broadcast("restaurant:"+restaurantID+":waiter", "order.ready", updated)
+		}
 	}
 
 	// 2. Record event in Redis Stream (events:restaurant:{rid}) for sequence replay per AD-8

@@ -6,8 +6,11 @@ import (
 	"strings"
 	"time"
 
+	"fmt"
 	pkgauth "menuflow/backend/pkg/auth"
 	pkgmw "menuflow/backend/pkg/middleware"
+	pkgws "menuflow/backend/pkg/websocket"
+	internalkds "menuflow/backend/internal/kds"
 )
 
 type CancelOrderRequest struct {
@@ -40,11 +43,19 @@ type SalesSummaryResponse struct {
 }
 
 type Handler struct {
-	repo Repository
+	repo    Repository
+	kdsRepo internalkds.Repository
+	hub     *pkgws.Hub
 }
 
 func NewHandler(repo Repository) *Handler {
 	return &Handler{repo: repo}
+}
+
+func (h *Handler) WithKDS(kdsRepo internalkds.Repository, hub *pkgws.Hub) *Handler {
+	h.kdsRepo = kdsRepo
+	h.hub = hub
+	return h
 }
 
 // HandleCreateOrder processes POST /api/v1/orders/create per FR-10 & AD-6
@@ -120,9 +131,87 @@ func (h *Handler) HandleCreateOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 1. Sync to KDS Active Orders
+	if h.kdsRepo != nil {
+		kdsItems := make([]internalkds.KDSItem, 0, len(created.Items))
+		for _, item := range created.Items {
+			name := item.MenuItemID
+			if name == "" {
+				name = "Special Order Item"
+			}
+			kdsItems = append(kdsItems, internalkds.KDSItem{
+				ID:                  item.ID,
+				NameEN:              name,
+				NameAM:              name,
+				Quantity:            item.Quantity,
+				SpecialInstructions: item.SpecialInstructions,
+			})
+		}
+		tableLabel := "Table " + created.TableID
+		if strings.HasPrefix(strings.ToLower(created.TableID), "p") {
+			tableLabel = "Pickup #" + created.TableID
+		}
+		card := internalkds.KDSOrderCard{
+			ID:            created.ID,
+			OrderRef:      fmt.Sprintf("MF-%s-%s", created.ID[len(created.ID)-4:], created.TableID),
+			RestaurantID:  created.RestaurantID,
+			TableLabel:    tableLabel,
+			TableType:     "table",
+			Status:        "Received",
+			PaymentStatus: created.PaymentStatus,
+			Items:         kdsItems,
+			CreatedAt:     created.CreatedAt,
+		}
+		_, _ = h.kdsRepo.AddOrder(r.Context(), card)
+	}
+
+	// 2. Broadcast order creation to KDS, Waiter, Cashier, and Guest order tracker
+	if h.hub != nil {
+		_ = h.hub.Broadcast("restaurant:"+restaurantID+":kds", "order.created", created)
+		_ = h.hub.Broadcast("restaurant:"+restaurantID+":waiter", "order.created", created)
+		_ = h.hub.Broadcast("restaurant:"+restaurantID+":cashier", "order.created", created)
+		_ = h.hub.Broadcast("order:"+created.ID+":status", "order.created", created)
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(created)
+}
+
+// HandleGetOrder processes GET /api/v1/orders/:id or /api/v1/orders/get?id=...
+func (h *Handler) HandleGetOrder(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	orderID := r.URL.Query().Get("id")
+	if orderID == "" {
+		// Try parsing from path suffix
+		parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+		if len(parts) > 0 {
+			orderID = parts[len(parts)-1]
+		}
+	}
+
+	if orderID == "" || orderID == "order" || orderID == "get" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "id parameter required"})
+		return
+	}
+
+	ord, err := h.repo.GetOrder(r.Context(), orderID)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Order not found"})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(ord)
 }
 
 // HandleCancelOrder processes POST /api/v1/orders/cancel per FR-15 & AD-6

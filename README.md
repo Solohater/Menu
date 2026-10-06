@@ -3,6 +3,8 @@
 > **Customizable Digital Menu & Real-Time Ordering Platform for Ethiopian Restaurants & Cafes**  
 > *One cohesive, self-contained application — easily customized and white-labeled per restaurant deployment.*
 
+📖 **[Full Testing & Feature Walkthrough Guide](TESTING_GUIDE.md)** — Step-by-step instructions on running the app, accessing all screens on mobile/LAN, and testing end-to-end WebSocket ordering and waiter calls.
+
 ---
 
 ## 🎨 UI Suite Improvements & Visual Showcase

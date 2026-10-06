@@ -67,10 +67,55 @@ export default function TrayCheckoutPage() {
 
   const hasSoldOutItem = items.some((i) => !i.is_available);
 
-  const handlePlaceOrder = () => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handlePlaceOrder = async () => {
+    setIsSubmitting(true);
+    let orderId = `MF-${Math.floor(8000 + Math.random() * 900)}-T04`;
+
+    try {
+      const backendUrl = typeof window !== "undefined"
+        ? `${window.location.protocol}//${window.location.hostname}:8080/api/v1/orders/create`
+        : "http://localhost:8080/api/v1/orders/create";
+
+      const orderPayload = {
+        restaurant_id: "01J8RESTAURANT000000000001",
+        table_id: "04",
+        provider: selectedRail,
+        order_intent_id: `intent-${Date.now()}`,
+        items: items.map((i) => ({
+          menu_item_id: i.name_en,
+          quantity: i.quantity,
+          unit_price: i.final_price,
+          special_instructions: [
+            i.special_instructions,
+            i.selected_removals ? Object.keys(i.selected_removals).filter(k => i.selected_removals![k]).join(", ") : "",
+            i.selected_addons ? Object.keys(i.selected_addons).filter(k => i.selected_addons![k]).map(k => `+ ${k}`).join(", ") : "",
+          ].filter(Boolean).join(" | "),
+        })),
+      };
+
+      const res = await fetch(backendUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(orderPayload),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.id) {
+          orderId = data.id;
+        }
+      }
+    } catch (err) {
+      console.warn("checkout: live backend order creation fallback to local session", err);
+    } finally {
+      setIsSubmitting(false);
+    }
+
     if (selectedRail === "cash") {
       setOrderConfirmed({
-        order_id: "MF-8942-T4",
+        order_id: orderId,
         status: "Received by Kitchen & Cashier",
         payment_status: "unpaid",
         total: totalPayable,
@@ -78,7 +123,7 @@ export default function TrayCheckoutPage() {
       });
     } else {
       setOrderConfirmed({
-        order_id: "MF-8942-T4",
+        order_id: orderId,
         status: "Payment Confirmed",
         payment_status: "paid",
         total: totalPayable,
@@ -124,7 +169,7 @@ export default function TrayCheckoutPage() {
 
           <div className="pt-2 space-y-2">
             <Link
-              href="/order/01J8ORD100"
+              href={`/order/${orderConfirmed.order_id}`}
               className="w-full py-3.5 bg-primary text-white font-black text-xs rounded-2xl shadow hover:bg-primary-container transition-all block text-center uppercase tracking-wider"
             >
               Track Live Kitchen Progress →

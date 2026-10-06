@@ -50,7 +50,8 @@ func TestRouteReadyEvent(t *testing.T) {
 func TestDeliverOrderHandler(t *testing.T) {
 	hub := pkgws.NewHub()
 	router := internalnotif.NewRouter(hub)
-	handler := internalnotif.NewHandler(router)
+	serviceRepo := internalnotif.NewMemoryServiceRequestRepository()
+	handler := internalnotif.NewHandler(router, serviceRepo, hub)
 
 	body, _ := json.Marshal(map[string]string{"order_id": "01J8ORD100"})
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/waiter/deliver", bytes.NewReader(body))
@@ -69,3 +70,56 @@ func TestDeliverOrderHandler(t *testing.T) {
 		t.Errorf("expected status Delivered, got %v", resp["status"])
 	}
 }
+
+func TestServiceRequestHandler(t *testing.T) {
+	hub := pkgws.NewHub()
+	router := internalnotif.NewRouter(hub)
+	serviceRepo := internalnotif.NewMemoryServiceRequestRepository()
+	handler := internalnotif.NewHandler(router, serviceRepo, hub)
+
+	// 1. Create service request
+	payload := internalnotif.CreateServiceRequestPayload{
+		RestaurantID: "01J8REST100",
+		TableID:      "01J8TBL04",
+		TableLabel:   "Table 04",
+		RequestType:  "water",
+		Details:      "Need 2 glasses of cold water",
+	}
+	body, _ := json.Marshal(payload)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/guest/service-request", bytes.NewReader(body))
+	rec := httptest.NewRecorder()
+
+	handler.HandleCreateServiceRequest(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected status 201 Created, got %d", rec.Code)
+	}
+
+	var created internalnotif.ServiceRequest
+	json.Unmarshal(rec.Body.Bytes(), &created)
+	if created.RequestType != "water" {
+		t.Errorf("expected request_type water, got %s", created.RequestType)
+	}
+
+	// 2. Fetch active requests for waiter
+	reqList := httptest.NewRequest(http.MethodGet, "/api/v1/waiter/service-requests?restaurant_id=01J8REST100", nil)
+	recList := httptest.NewRecorder()
+	handler.HandleGetServiceRequests(recList, reqList)
+
+	if recList.Code != http.StatusOK {
+		t.Fatalf("expected status 200 OK, got %d", recList.Code)
+	}
+
+	// 3. Resolve request
+	updateBody, _ := json.Marshal(internalnotif.UpdateServiceRequestPayload{
+		Status:     "resolved",
+		ResolvedBy: "waiter_1",
+	})
+	reqUpdate := httptest.NewRequest(http.MethodPatch, "/api/v1/waiter/service-requests?id="+created.ID, bytes.NewReader(updateBody))
+	recUpdate := httptest.NewRecorder()
+	handler.HandleUpdateServiceRequest(recUpdate, reqUpdate)
+
+	if recUpdate.Code != http.StatusOK {
+		t.Fatalf("expected status 200 OK for update, got %d", recUpdate.Code)
+	}
+}
+

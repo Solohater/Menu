@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import WaiterAlertCard from "@/components/waiter/WaiterAlertCard";
+import { MenuFlowWebSocketClient } from "@/lib/websocket";
 
 interface WaiterItem {
   name: string;
@@ -19,11 +20,56 @@ interface WaiterAlert {
   source: "chef" | "cashier";
 }
 
+interface ServiceRequestItem {
+  id: string;
+  table_id: string;
+  table_label: string;
+  request_type: string;
+  details?: string;
+  status: "pending" | "in_progress" | "resolved";
+  created_at?: string;
+}
+
 export default function WaiterAppPage() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [activeFilter, setActiveFilter] = useState<"all" | "chef" | "cashier">("all");
   const [deliveredCount, setDeliveredCount] = useState(14);
-  const [guestCallAlert, setGuestCallAlert] = useState<string | null>("Table 03");
+  const [serviceRequests, setServiceRequests] = useState<ServiceRequestItem[]>([
+    {
+      id: "req-init-1",
+      table_id: "03",
+      table_label: "Table 03",
+      request_type: "call_waiter",
+      details: "Requested table waiter assistance",
+      status: "pending",
+    },
+  ]);
+
+  // Audio synthesizer for waiter alert bell
+  const playChime = (freq = 800, count = 2) => {
+    if (!soundEnabled || typeof window === "undefined") return;
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      for (let i = 0; i < count; i++) {
+        setTimeout(() => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(freq, ctx.currentTime);
+          gain.gain.setValueAtTime(0.2, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.25);
+        }, i * 220);
+      }
+    } catch {
+      // Audio autoplay policy
+    }
+  };
 
   // Active Ready Orders waiting for runner delivery
   const [alerts, setAlerts] = useState<WaiterAlert[]>([
@@ -44,7 +90,7 @@ export default function WaiterAppPage() {
         },
       ],
       readyAt: "Just now",
-      source: "chef", // Triggered by Chef
+      source: "chef",
     },
     {
       id: "alert-2",
@@ -62,84 +108,139 @@ export default function WaiterAppPage() {
         },
       ],
       readyAt: "1 min ago",
-      source: "cashier", // Triggered by Cashier
-    },
-    {
-      id: "alert-3",
-      orderRef: "MF-8947-T5",
-      tableLabel: "Table 05",
-      items: [
-        {
-          name: "Smoky BBQ Bacon Burger",
-          quantity: 1,
-          customizations: ["No Onions"],
-        },
-        {
-          name: "Fresh Avocado Mango Spris",
-          quantity: 1,
-          customizations: ["No Sugar"],
-        },
-      ],
-      readyAt: "3 mins ago",
-      source: "chef", // Triggered by Chef
+      source: "cashier",
     },
   ]);
 
-  const handleDeliver = (id: string) => {
+  // 1. Fetch initial service requests from backend
+  useEffect(() => {
+    async function loadRequests() {
+      try {
+        const backendUrl = typeof window !== "undefined"
+          ? `${window.location.protocol}//${window.location.hostname}:8080/api/v1/waiter/service-requests?restaurant_id=01J8RESTAURANT000000000001`
+          : "http://localhost:8080/api/v1/waiter/service-requests?restaurant_id=01J8RESTAURANT000000000001";
+
+        const res = await fetch(backendUrl);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.requests && data.requests.length > 0) {
+            setServiceRequests((prev) => {
+              const existingIds = new Set(prev.map((r) => r.id));
+              const newReqs = data.requests.filter((r: any) => !existingIds.has(r.id));
+              return [...newReqs, ...prev];
+            });
+          }
+        }
+      } catch (err) {
+        console.warn("waiter: failed to load service requests", err);
+      }
+    }
+    loadRequests();
+  }, []);
+
+  // 2. Connect to real-time WebSocket for kitchen ready pings & guest assistance calls
+  useEffect(() => {
+    const ws = new MenuFlowWebSocketClient("restaurant:01J8RESTAURANT000000000001:waiter");
+    ws.connect((msg) => {
+      if (!msg) return;
+
+      // Handle Kitchen Ready Order alert
+      if (msg.event_type === "order.ready" && msg.payload) {
+        playChime(850, 3);
+        const p = msg.payload;
+        const newAlert: WaiterAlert = {
+          id: `alert-${Date.now()}`,
+          orderRef: p.order_ref || p.id || `MF-${Math.floor(1000 + Math.random() * 9000)}`,
+          tableLabel: p.table_label || "Table 04",
+          items: (p.items || []).map((it: any) => ({
+            name: it.name_en || "Prepared Dish",
+            quantity: it.quantity || 1,
+            customizations: it.options || (it.special_instructions ? [it.special_instructions] : []),
+          })),
+          readyAt: "Just now",
+          source: "chef",
+        };
+        setAlerts((prev) => [newAlert, ...prev]);
+      }
+
+      // Handle Guest Table Service Request alert
+      if (msg.event_type === "service.requested" && msg.payload) {
+        playChime(650, 2);
+        const p = msg.payload;
+        const newReq: ServiceRequestItem = {
+          id: p.id || `req-${Date.now()}`,
+          table_id: p.table_id || "04",
+          table_label: p.table_label || `Table ${p.table_id || "04"}`,
+          request_type: p.request_type || "call_waiter",
+          details: p.details,
+          status: p.status || "pending",
+        };
+        setServiceRequests((prev) => [newReq, ...prev.filter((r) => r.id !== newReq.id)]);
+      }
+    });
+
+    return () => {
+      ws.disconnect();
+    };
+  }, [soundEnabled]);
+
+  const handleDeliver = async (id: string) => {
+    const target = alerts.find((a) => a.id !== id);
     setAlerts((prev) => prev.filter((a) => a.id !== id));
     setDeliveredCount((prev) => prev + 1);
+
+    try {
+      const backendUrl = typeof window !== "undefined"
+        ? `${window.location.protocol}//${window.location.hostname}:8080/api/v1/waiter/deliver`
+        : "http://localhost:8080/api/v1/waiter/deliver";
+
+      await fetch(backendUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ order_id: target?.orderRef || id }),
+      });
+    } catch (err) {
+      console.warn("waiter deliver sync error", err);
+    }
   };
 
-  const handleSimulateChefPing = () => {
-    const newId = `alert-${Date.now()}`;
-    const tableNum = Math.floor(Math.random() * 8) + 1;
-    setAlerts((prev) => [
-      {
-        id: newId,
-        orderRef: `MF-${Math.floor(8000 + Math.random() * 900)}-T${tableNum}`,
-        tableLabel: `Table 0${tableNum}`,
-        items: [
-          {
-            name: "Crispy Peri-Peri Chicken Burger",
-            quantity: 1,
-            customizations: ["No Mayo"],
-          },
-          {
-            name: "Ambo Mineral Water",
-            quantity: 1,
-          },
-        ],
-        readyAt: "Just now",
-        source: "chef",
-      },
-      ...prev,
-    ]);
+  const handleUpdateServiceRequest = async (id: string, newStatus: "in_progress" | "resolved") => {
+    if (newStatus === "resolved") {
+      setServiceRequests((prev) => prev.filter((r) => r.id !== id));
+    } else {
+      setServiceRequests((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, status: "in_progress" } : r))
+      );
+    }
+
+    try {
+      const backendUrl = typeof window !== "undefined"
+        ? `${window.location.protocol}//${window.location.hostname}:8080/api/v1/waiter/service-requests?id=${id}`
+        : `http://localhost:8080/api/v1/waiter/service-requests?id=${id}`;
+
+      await fetch(backendUrl, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus, resolved_by: "waiter_runner_01" }),
+      });
+    } catch (err) {
+      console.warn("service request status update error", err);
+    }
   };
 
-  const handleSimulateCashierPing = () => {
-    const newId = `alert-${Date.now()}`;
-    const tableNum = Math.floor(Math.random() * 8) + 1;
-    setAlerts((prev) => [
-      {
-        id: newId,
-        orderRef: `MF-${Math.floor(8000 + Math.random() * 900)}-T${tableNum}`,
-        tableLabel: `Table 0${tableNum}`,
-        items: [
-          {
-            name: "Special Bozena Shiro",
-            quantity: 1,
-            customizations: ["Extra Injera"],
-          },
-          {
-            name: "Fresh Papaya Orange Blend",
-            quantity: 1,
-          },
-        ],
-        readyAt: "Just now",
-        source: "cashier",
-      },
-      ...prev,
-    ]);
+  const getRequestIcon = (type: string) => {
+    switch (type) {
+      case "water":
+        return "💧";
+      case "cutlery":
+        return "🍴";
+      case "bill":
+        return "🧾";
+      case "issue":
+        return "⚠️";
+      default:
+        return "🛎️";
+    }
   };
 
   const filteredAlerts = alerts.filter((a) => {
@@ -175,7 +276,10 @@ export default function WaiterAppPage() {
         <div className="flex items-center space-x-1.5">
           <button
             type="button"
-            onClick={() => setSoundEnabled(!soundEnabled)}
+            onClick={() => {
+              setSoundEnabled(!soundEnabled);
+              if (!soundEnabled) playChime(800, 1);
+            }}
             className={`px-2.5 py-1 rounded-xl text-[10px] font-black border transition-all flex items-center space-x-1 ${
               soundEnabled
                 ? "bg-primary text-white border-primary shadow-sm"
@@ -187,79 +291,113 @@ export default function WaiterAppPage() {
         </div>
       </header>
 
-      {/* Guest Assistance Bell Alert Banner (If triggered by customer QR menu) */}
-      {guestCallAlert && (
-        <div className="bg-amber-500 text-black p-3.5 rounded-2xl shadow-lg border-2 border-amber-400 flex items-center justify-between animate-pulse">
-          <div className="flex items-center space-x-2">
-            <span className="text-xl">🛎️</span>
-            <div>
-              <span className="text-xs font-black uppercase tracking-wider block">
-                GUEST CALL BELL
+      {/* Guest Assistance Bell Alert Queue */}
+      {serviceRequests.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex justify-between items-center px-1">
+            <span className="text-[11px] font-black uppercase tracking-wider text-amber-700 flex items-center space-x-1">
+              <span>🛎️ Active Table Assistance Calls</span>
+              <span className="bg-amber-500 text-black text-[9px] px-1.5 py-0.2 rounded-full font-black">
+                {serviceRequests.length}
               </span>
-              <p className="text-sm font-black">
-                {guestCallAlert} requested waiter assistance!
-              </p>
-            </div>
+            </span>
           </div>
-          <button
-            type="button"
-            onClick={() => setGuestCallAlert(null)}
-            className="px-3 py-1 bg-black text-white text-xs font-black rounded-xl shadow active:scale-95"
-          >
-            Attending ✓
-          </button>
+
+          {serviceRequests.map((req) => (
+            <div
+              key={req.id}
+              className={`p-3.5 rounded-2xl shadow-md border-2 transition-all ${
+                req.status === "in_progress"
+                  ? "bg-amber-50 border-amber-300 text-amber-950"
+                  : "bg-amber-400 border-amber-500 text-black animate-pulse"
+              }`}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center space-x-2.5">
+                  <span className="text-2xl">{getRequestIcon(req.request_type)}</span>
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs font-black uppercase tracking-wider block">
+                        {req.table_label}
+                      </span>
+                      <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-black/10 uppercase">
+                        {req.request_type.replace("_", " ")}
+                      </span>
+                    </div>
+                    {req.details ? (
+                      <p className="text-xs font-bold mt-0.5 text-black/80">{req.details}</p>
+                    ) : (
+                      <p className="text-[11px] font-medium mt-0.5 text-black/70">
+                        Guest requested {req.request_type.replace("_", " ")}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-1 shrink-0">
+                  {req.status === "pending" && (
+                    <button
+                      onClick={() => handleUpdateServiceRequest(req.id, "in_progress")}
+                      className="px-2.5 py-1.5 bg-black text-white text-[10px] font-black rounded-xl hover:bg-neutral-800 transition-colors shadow-sm"
+                    >
+                      On My Way 🏃
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleUpdateServiceRequest(req.id, "resolved")}
+                    className="px-2.5 py-1.5 bg-[#2D7A4D] text-white text-[10px] font-black rounded-xl hover:bg-[#23603d] transition-colors shadow-sm"
+                  >
+                    Done ✓
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
-      {/* Notification Origin Tabs: All / Chef / Cashier */}
-      <div className="bg-white p-1 rounded-2xl border border-[#ebdcd3] flex space-x-1 shadow-sm">
+      {/* Runner Delivery Queue Filter Tabs */}
+      <div className="flex items-center justify-between bg-white p-1 rounded-2xl border border-[#ebdcd3] shadow-sm">
         <button
-          type="button"
           onClick={() => setActiveFilter("all")}
-          className={`flex-1 py-2 rounded-xl text-xs font-black transition-all text-center ${
+          className={`flex-1 py-1.5 text-xs font-bold rounded-xl transition-all ${
             activeFilter === "all"
               ? "bg-primary text-white shadow-sm"
               : "text-buna-mocha hover:text-buna"
           }`}
         >
-          All ({alerts.length})
+          All Ready ({alerts.length})
         </button>
-
         <button
-          type="button"
           onClick={() => setActiveFilter("chef")}
-          className={`flex-1 py-2 rounded-xl text-xs font-black transition-all text-center flex items-center justify-center space-x-1 ${
+          className={`flex-1 py-1.5 text-xs font-bold rounded-xl transition-all ${
             activeFilter === "chef"
-              ? "bg-[#9d3e0f] text-white shadow-sm"
+              ? "bg-primary text-white shadow-sm"
               : "text-buna-mocha hover:text-buna"
           }`}
         >
-          <span>👨‍🍳 Chef</span>
-          <span className="text-[10px] opacity-80">({chefAlertsCount})</span>
+          Kitchen Pass ({chefAlertsCount})
         </button>
-
         <button
-          type="button"
           onClick={() => setActiveFilter("cashier")}
-          className={`flex-1 py-2 rounded-xl text-xs font-black transition-all text-center flex items-center justify-center space-x-1 ${
+          className={`flex-1 py-1.5 text-xs font-bold rounded-xl transition-all ${
             activeFilter === "cashier"
-              ? "bg-emerald-700 text-white shadow-sm"
+              ? "bg-primary text-white shadow-sm"
               : "text-buna-mocha hover:text-buna"
           }`}
         >
-          <span>💵 Cashier</span>
-          <span className="text-[10px] opacity-80">({cashierAlertsCount})</span>
+          Till Settle ({cashierAlertsCount})
         </button>
       </div>
 
-      {/* Runner Delivery Queue Cards */}
-      <main className="space-y-4">
+      {/* Priority Ready Delivery Queue */}
+      <div className="space-y-3">
         {filteredAlerts.length === 0 ? (
-          <div className="bg-white rounded-3xl p-8 border border-[#ebdcd3] text-center space-y-3 shadow-sm">
-            <span className="text-4xl block animate-bounce">🎉</span>
-            <h2 className="text-lg font-black text-buna">All Ready Orders Delivered!</h2>
-            <p className="text-xs text-buna-mocha leading-relaxed max-w-xs mx-auto">
-              When either the <strong className="text-primary font-bold">Chef</strong> or <strong className="text-emerald-700 font-bold">Cashier</strong> marks an order ready for a table, a live audible alert will pop up here.
+          <div className="bg-white p-8 rounded-3xl border border-[#ebdcd3] text-center space-y-2">
+            <span className="text-3xl block">🏃💨</span>
+            <h3 className="text-sm font-black text-buna">No Ready Deliveries!</h3>
+            <p className="text-xs text-buna-mocha">
+              The runner pass is clear. New orders ready from the kitchen or cashier will chime here automatically.
             </p>
           </div>
         ) : (
@@ -272,43 +410,19 @@ export default function WaiterAppPage() {
               items={alert.items}
               readyAt={alert.readyAt}
               source={alert.source}
-              onDeliver={handleDeliver}
+              onDeliver={() => handleDeliver(alert.id)}
             />
           ))
         )}
-      </main>
-
-      {/* Simulator Triggers (Easy testing of Chef & Cashier pings) */}
-      <div className="pt-2 bg-white p-3.5 rounded-2xl border border-[#ebdcd3] space-y-2 text-center">
-        <span className="text-[10px] font-black uppercase tracking-wider text-buna-mocha block">
-          Simulate Incoming Ready Notifications:
-        </span>
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={handleSimulateChefPing}
-            className="py-2.5 px-2 bg-[#faf2ee] hover:bg-[#ebdcd3] text-[#9d3e0f] rounded-xl text-xs font-black border border-[#ebdcd3] transition-colors flex items-center justify-center space-x-1"
-          >
-            <span>👨‍🍳</span>
-            <span>Chef Marks Ready</span>
-          </button>
-          <button
-            type="button"
-            onClick={handleSimulateCashierPing}
-            className="py-2.5 px-2 bg-[#f0fdf4] hover:bg-[#dcfce7] text-emerald-800 rounded-xl text-xs font-black border border-emerald-200 transition-colors flex items-center justify-center space-x-1"
-          >
-            <span>💵</span>
-            <span>Cashier Marks Ready</span>
-          </button>
-        </div>
       </div>
 
-      {/* Delivered Today Stats Footer */}
-      <footer className="text-center pt-2">
-        <span className="text-[11px] text-buna-mocha font-semibold">
-          🚀 {deliveredCount} tables served today • MenuFlow Runner Service
+      {/* Runner Shift Stats Pill */}
+      <div className="bg-white border border-[#ebdcd3] p-3.5 rounded-2xl flex items-center justify-between text-xs font-bold text-buna shadow-sm">
+        <span className="text-buna-mocha">Completed Deliveries This Shift:</span>
+        <span className="text-primary font-black text-sm bg-primary/10 px-2.5 py-0.5 rounded-lg">
+          {deliveredCount} Orders
         </span>
-      </footer>
+      </div>
     </div>
   );
 }

@@ -10,6 +10,7 @@ import (
 type Repository interface {
 	GetActiveOrders(ctx context.Context, restaurantID string) ([]KDSOrderCard, error)
 	UpdateOrderStatus(ctx context.Context, restaurantID, orderID, fromStatus, toStatus string) (*KDSOrderCard, error)
+	AddOrder(ctx context.Context, card KDSOrderCard) (*KDSOrderCard, error)
 }
 
 type MemoryRepository struct {
@@ -81,3 +82,12 @@ func (r *MemoryRepository) UpdateOrderStatus(ctx context.Context, restaurantID, 
 	o.Status = toStatus
 	return o, nil
 }
+
+func (r *MemoryRepository) AddOrder(ctx context.Context, card KDSOrderCard) (*KDSOrderCard, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.orders[card.ID] = &card
+	return &card, nil
+}
+
