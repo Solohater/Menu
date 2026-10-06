@@ -10,6 +10,7 @@ interface TableEntity {
   table_number: string;
   type: string;
   qr_token?: string;
+  assigned_waiter?: string;
   created_at: string;
 }
 
@@ -22,13 +23,13 @@ export default function AdminTablesPage() {
 
   useEffect(() => {
     setTables([
-      { id: "01J8TBL1", table_number: "01", type: "table", qr_token: "eyJyaWQiOiIwMUo4UkVTVDEwMCIsInR5cGUiOiJ0YWJsZSIsInRhcmdldF9pZCI6IjAxSjhUQUJMRTEwMCIsImxhYmVsIjoiMDEiLCJ2IjoxfQ==.sig", created_at: "2026-09-22" },
-      { id: "01J8TBL2", table_number: "02", type: "table", qr_token: "eyJyaWQiOiIwMUo4UkVTVDEwMCIsInR5cGUiOiJ0YWJsZSIsInRhcmdldF9pZCI6IjAxSjhUQUJMRTIwMCIsImxhYmVsIjoiMDIiLCJ2IjoxfQ==.sig", created_at: "2026-09-22" },
-      { id: "01J8TBL3", table_number: "03", type: "table", qr_token: "eyJyaWQiOiIwMUo4UkVTVDEwMCIsInR5cGUiOiJ0YWJsZSIsInRhcmdldF9pZCI6IjAxSjhUQUJMRTMwMCIsImxhYmVsIjoiMDMiLCJ2IjoxfQ==.sig", created_at: "2026-09-22" },
-      { id: "01J8TBL4", table_number: "04", type: "table", qr_token: "eyJyaWQiOiIwMUo4UkVTVDEwMCIsInR5cGUiOiJ0YWJsZSIsInRhcmdldF9pZCI6IjAxSjhUQUJMRTQwMCIsImxhYmVsIjoiMDQiLCJ2IjoxfQ==.sig", created_at: "2026-09-22" },
-      { id: "01J8TBL5", table_number: "05", type: "table", qr_token: "eyJyaWQiOiIwMUo4UkVTVDEwMCIsInR5cGUiOiJ0YWJsZSIsInRhcmdldF9pZCI6IjAxSjhUQUJMRTUwMCIsImxhYmVsIjoiMDUiLCJ2IjoxfQ==.sig", created_at: "2026-09-22" },
-      { id: "01J8TBL6", table_number: "P01", type: "pickup", qr_token: "eyJyaWQiOiIwMUo4UkVTVDEwMCIsInR5cGUiOiJwaWNrdXAiLCJ0YXJnZXRfaWQiOiIwMUo4UElDS1VQMTAwIiwibGFiZWwiOiJQMDEiLCJ2IjoxfQ==.sig", created_at: "2026-09-22" },
-      { id: "01J8TBL7", table_number: "P02", type: "pickup", qr_token: "eyJyaWQiOiIwMUo4UkVTVDEwMCIsInR5cGUiOiJwaWNrdXAiLCJ0YXJnZXRfaWQiOiIwMUo4UElDS1VQMjAwIiwibGFiZWwiOiJQMDIiLCJ2IjoxfQ==.sig", created_at: "2026-09-22" },
+      { id: "01J8TBL1", table_number: "01", type: "table", assigned_waiter: "Abebe Tadesse (Zone A)", qr_token: "eyJyaWQiOiIwMUo4UkVTVDEwMCIsInR5cGUiOiJ0YWJsZSIsInRhcmdldF9pZCI6IjAxSjhUQUJMRTEwMCIsImxhYmVsIjoiMDEiLCJ2IjoxfQ==.sig", created_at: "2026-09-22" },
+      { id: "01J8TBL2", table_number: "02", type: "table", assigned_waiter: "Abebe Tadesse (Zone A)", qr_token: "eyJyaWQiOiIwMUo4UkVTVDEwMCIsInR5cGUiOiJ0YWJsZSIsInRhcmdldF9pZCI6IjAxSjhUQUJMRTIwMCIsImxhYmVsIjoiMDIiLCJ2IjoxfQ==.sig", created_at: "2026-09-22" },
+      { id: "01J8TBL3", table_number: "03", type: "table", assigned_waiter: "Abebe Tadesse (Zone A)", qr_token: "eyJyaWQiOiIwMUo4UkVTVDEwMCIsInR5cGUiOiJ0YWJsZSIsInRhcmdldF9pZCI6IjAxSjhUQUJMRTMwMCIsImxhYmVsIjoiMDMiLCJ2IjoxfQ==.sig", created_at: "2026-09-22" },
+      { id: "01J8TBL4", table_number: "04", type: "table", assigned_waiter: "Abebe Tadesse (Zone A)", qr_token: "eyJyaWQiOiIwMUo4UkVTVDEwMCIsInR5cGUiOiJ0YWJsZSIsInRhcmdldF9pZCI6IjAxSjhUQUJMRTQwMCIsImxhYmVsIjoiMDQiLCJ2IjoxfQ==.sig", created_at: "2026-09-22" },
+      { id: "01J8TBL5", table_number: "05", type: "table", assigned_waiter: "Tigist Haile (Zone B)", qr_token: "eyJyaWQiOiIwMUo4UkVTVDEwMCIsInR5cGUiOiJ0YWJsZSIsInRhcmdldF9pZCI6IjAxSjhUQUJMRTUwMCIsImxhYmVsIjoiMDUiLCJ2IjoxfQ==.sig", created_at: "2026-09-22" },
+      { id: "01J8TBL6", table_number: "P01", type: "pickup", assigned_waiter: "Dawit Kebede (Counter)", qr_token: "eyJyaWQiOiIwMUo4UkVTVDEwMCIsInR5cGUiOiJwaWNrdXAiLCJ0YXJnZXRfaWQiOiIwMUo4UElDS1VQMTAwIiwibGFiZWwiOiJQMDEiLCJ2IjoxfQ==.sig", created_at: "2026-09-22" },
+      { id: "01J8TBL7", table_number: "P02", type: "pickup", assigned_waiter: "Dawit Kebede (Counter)", qr_token: "eyJyaWQiOiIwMUo4UkVTVDEwMCIsInR5cGUiOiJwaWNrdXAiLCJ0YXJnZXRfaWQiOiIwMUo4UElDS1VQMjAwIiwibGFiZWwiOiJQMDIiLCJ2IjoxfQ==.sig", created_at: "2026-09-22" },
     ]);
   }, []);
 
@@ -192,6 +193,26 @@ export default function AdminTablesPage() {
                     <p className="text-[11px] text-buna-mocha font-mono truncate mt-0.5">
                       ID: {tbl.id}
                     </p>
+
+                    {/* Assigned Waiter Dropdown (Phase 2C) */}
+                    <div className="pt-2">
+                      <label className="text-[10px] font-black text-buna-mocha uppercase tracking-wider block mb-1">
+                        👤 Assigned Waiter:
+                      </label>
+                      <select
+                        value={tbl.assigned_waiter || "Unassigned"}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setTables(tables.map((t) => (t.id === tbl.id ? { ...t, assigned_waiter: val } : t)));
+                        }}
+                        className="w-full text-xs font-bold bg-[#faf2ee] border border-[#ebdcd3] text-buna rounded-xl p-2 focus:outline-primary cursor-pointer"
+                      >
+                        <option value="Abebe Tadesse (Zone A)">Abebe Tadesse (Zone A)</option>
+                        <option value="Tigist Haile (Zone B)">Tigist Haile (Zone B)</option>
+                        <option value="Dawit Kebede (Counter)">Dawit Kebede (Counter)</option>
+                        <option value="Unassigned">Unassigned (Floating)</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
 

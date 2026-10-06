@@ -1,6 +1,6 @@
 "use client";
-
 import { useEffect, useState } from "react";
+import VoiceNoteRecorder from "./VoiceNoteRecorder";
 
 export interface Option {
   name_en: string;
@@ -42,6 +42,7 @@ export default function CustomizeSheet({
   const [selectedRemovals, setSelectedRemovals] = useState<Record<string, boolean>>({});
   const [selectedVariant, setSelectedVariant] = useState<string>("default");
   const [instructions, setInstructions] = useState("");
+  const [voiceNoteData, setVoiceNoteData] = useState<{ audioBase64: string; durationSec: number } | null>(null);
 
   // Reset form whenever a new item is opened
   useEffect(() => {
@@ -50,6 +51,7 @@ export default function CustomizeSheet({
       setSelectedRemovals({});
       setSelectedVariant("default");
       setInstructions("");
+      setVoiceNoteData(null);
     }
   }, [item?.id]);
 
@@ -94,6 +96,8 @@ export default function CustomizeSheet({
       selected_removals: selectedRemovals,
       selected_variant: selectedVariant,
       special_instructions: instructions,
+      voice_note_data: voiceNoteData?.audioBase64,
+      voice_note_duration: voiceNoteData?.durationSec,
     });
     onClose();
   };
@@ -250,6 +254,9 @@ export default function CustomizeSheet({
             rows={2}
           />
         </div>
+
+        {/* Spoken Voice Note Audio Recorder per Phase 2B */}
+        <VoiceNoteRecorder lang={lang} onVoiceNoteChange={setVoiceNoteData} />
 
         {/* Action Button */}
         <div className="pt-2">

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import CategoryFormModal from "@/components/admin/CategoryFormModal";
 import ItemFormModal from "@/components/admin/ItemFormModal";
 import BulkPriceModal from "@/components/admin/BulkPriceModal";
+import ModifierGroupBuilderModal from "@/components/admin/ModifierGroupBuilderModal";
 
 interface ItemOption {
   name_en: string;
@@ -39,6 +40,7 @@ export default function AdminMenuPage() {
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [isItemModalOpen, setIsItemModalOpen] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [isModifierModalOpen, setIsModifierModalOpen] = useState(false);
   const [activeCategoryId, setActiveCategoryId] = useState("all");
 
   useEffect(() => {
@@ -145,6 +147,12 @@ export default function AdminMenuPage() {
           <p className="text-sm text-buna-mocha">CRUD menu categories, items, prices, options, and availability toggles.</p>
         </div>
         <div className="flex space-x-2">
+          <button
+            onClick={() => setIsModifierModalOpen(true)}
+            className="px-3 py-2 border border-[#f59e0b] bg-[#faf5f0] text-amber-900 rounded-md text-xs font-bold hover:bg-[#ebdcd3] transition-colors"
+          >
+            ⚡ Modifier Groups
+          </button>
           <button
             onClick={() => setIsBulkModalOpen(true)}
             className="px-3 py-2 border border-primary text-primary rounded-md text-xs font-semibold hover:bg-teff"
@@ -269,6 +277,14 @@ export default function AdminMenuPage() {
         selectedCount={0}
         onClose={() => setIsBulkModalOpen(false)}
         onApply={handleApplyBulkPrice}
+      />
+
+      <ModifierGroupBuilderModal
+        isOpen={isModifierModalOpen}
+        onClose={() => setIsModifierModalOpen(false)}
+        onSaveGroup={(group) => {
+          alert(`Modifier group "${group.group_name_en}" saved with ${group.options.length} options!`);
+        }}
       />
     </div>
   );

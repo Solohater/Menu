@@ -33,7 +33,20 @@ interface ServiceRequestItem {
 export default function WaiterAppPage() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [activeFilter, setActiveFilter] = useState<"all" | "chef" | "cashier">("all");
+  const [staffView, setStaffView] = useState<"all" | "abebe" | "tigist">("all");
+  const [is86DrawerOpen, setIs86DrawerOpen] = useState(false);
   const [deliveredCount, setDeliveredCount] = useState(14);
+
+  // Quick 86ing Mobile Stock State per Phase 2C
+  const [menuStock, setMenuStock] = useState([
+    { id: "1", name: "Special Sizzling Shekla Tibs", nameAm: "የሸክላ ጥብስ", available: true },
+    { id: "2", name: "Classic Addis Cheeseburger", nameAm: "አዲስ ቺዝበርገር", available: true },
+    { id: "3", name: "Special Kitfo with Ayib & Gomen", nameAm: "ልዩ ክትፎ ከአይብና ጎመን", available: false },
+    { id: "4", name: "Traditional Jebena Buna", nameAm: "የጀበና ቡና ሥነ ሥርዓት", available: true },
+    { id: "5", name: "St George Cold Beer", nameAm: "ቅዱስ ጊዮርጊስ ቢራ", available: true },
+    { id: "6", name: "Iced Caramel Macchiato", nameAm: "አይስድ ካራሜል ማኪያቶ", available: true },
+  ]);
+
   const [serviceRequests, setServiceRequests] = useState<ServiceRequestItem[]>([
     {
       id: "req-init-1",
@@ -286,13 +299,26 @@ export default function WaiterAppPage() {
     }
   };
 
-  const filteredAlerts = alerts.filter((a) => {
-    if (activeFilter === "all") return true;
-    return a.source === activeFilter;
-  });
+  const isTableInZone = (tbl: string) => {
+    const clean = tbl.replace(/\D/g, "");
+    const num = parseInt(clean, 10);
+    if (staffView === "all") return true;
+    if (staffView === "abebe") return num >= 1 && num <= 4;
+    if (staffView === "tigist") return num >= 5 && num <= 8;
+    return true;
+  };
 
-  const chefAlertsCount = alerts.filter((a) => a.source === "chef").length;
-  const cashierAlertsCount = alerts.filter((a) => a.source === "cashier").length;
+  const zoneFilteredRequests = serviceRequests.filter((r) => isTableInZone(r.table_id || r.table_label));
+
+  const filteredAlerts = alerts
+    .filter((a) => isTableInZone(a.tableLabel))
+    .filter((a) => {
+      if (activeFilter === "all") return true;
+      return a.source === activeFilter;
+    });
+
+  const chefAlertsCount = alerts.filter((a) => a.source === "chef" && isTableInZone(a.tableLabel)).length;
+  const cashierAlertsCount = alerts.filter((a) => a.source === "cashier" && isTableInZone(a.tableLabel)).length;
 
   return (
     <div className="min-h-screen bg-[#fff8f5] text-buna font-sans p-4 max-w-md mx-auto space-y-4 pb-20 select-none">
@@ -315,8 +341,17 @@ export default function WaiterAppPage() {
           </div>
         </div>
 
-        {/* Audio Chime & Shift Pill */}
+        {/* Action Controls: 86 Stock & Audio Chime */}
         <div className="flex items-center space-x-1.5">
+          <button
+            type="button"
+            onClick={() => setIs86DrawerOpen(true)}
+            className="px-2.5 py-1 rounded-xl text-[10px] font-black border bg-white hover:bg-[#faf2ee] text-primary border-[#ebdcd3] transition-all flex items-center space-x-1 shadow-sm active:scale-95"
+            title="Instant Sold-Out Stock Manager"
+          >
+            <span>⚡ 86 Items</span>
+          </button>
+
           <button
             type="button"
             onClick={() => {
@@ -329,10 +364,47 @@ export default function WaiterAppPage() {
                 : "bg-white text-buna-mocha border-[#ebdcd3]"
             }`}
           >
-            <span>{soundEnabled ? "🔔 Chime: ON" : "🔕 Muted"}</span>
+            <span>{soundEnabled ? "🔔 ON" : "🔕"}</span>
           </button>
         </div>
       </header>
+
+      {/* Staff Zone & Table Assignment Filter (Phase 2C) */}
+      <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 text-xs font-bold no-scrollbar">
+        <button
+          type="button"
+          onClick={() => setStaffView("all")}
+          className={`px-3 py-1.5 rounded-xl whitespace-nowrap transition-all ${
+            staffView === "all"
+              ? "bg-primary text-white shadow-sm"
+              : "bg-white text-buna border border-[#ebdcd3] hover:bg-[#faf2ee]"
+          }`}
+        >
+          🌐 All Floor ({alerts.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setStaffView("abebe")}
+          className={`px-3 py-1.5 rounded-xl whitespace-nowrap transition-all ${
+            staffView === "abebe"
+              ? "bg-primary text-white shadow-sm"
+              : "bg-white text-buna border border-[#ebdcd3] hover:bg-[#faf2ee]"
+          }`}
+        >
+          👤 My Tables: Abebe (T1–T4)
+        </button>
+        <button
+          type="button"
+          onClick={() => setStaffView("tigist")}
+          className={`px-3 py-1.5 rounded-xl whitespace-nowrap transition-all ${
+            staffView === "tigist"
+              ? "bg-primary text-white shadow-sm"
+              : "bg-white text-buna border border-[#ebdcd3] hover:bg-[#faf2ee]"
+          }`}
+        >
+          👤 My Tables: Tigist (T5–T8)
+        </button>
+      </div>
 
       {/* Real-Time Table Settlement Notification Banners */}
       {settledNotifs.length > 0 && (
@@ -366,18 +438,18 @@ export default function WaiterAppPage() {
       )}
 
       {/* Guest Assistance Bell Alert Queue */}
-      {serviceRequests.length > 0 && (
+      {zoneFilteredRequests.length > 0 && (
         <div className="space-y-2">
           <div className="flex justify-between items-center px-1">
             <span className="text-[11px] font-black uppercase tracking-wider text-amber-700 flex items-center space-x-1">
               <span>🛎️ Active Table Assistance Calls</span>
               <span className="bg-amber-500 text-black text-[9px] px-1.5 py-0.2 rounded-full font-black">
-                {serviceRequests.length}
+                {zoneFilteredRequests.length}
               </span>
             </span>
           </div>
 
-          {serviceRequests.map((req) => (
+          {zoneFilteredRequests.map((req) => (
             <div
               key={req.id}
               className={`p-3.5 rounded-2xl shadow-md border-2 transition-all ${
@@ -497,6 +569,80 @@ export default function WaiterAppPage() {
           {deliveredCount} Orders
         </span>
       </div>
+
+      {/* Mobile 86ing Item Stock Drawer (Phase 2C) */}
+      {is86DrawerOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 bg-buna/60 backdrop-blur-sm z-50 flex items-end justify-center animate-in fade-in"
+          onClick={() => setIs86DrawerOpen(false)}
+        >
+          <div
+            className="bg-white rounded-t-3xl border-t border-[#ebdcd3] max-w-md w-full p-6 space-y-4 max-h-[80vh] overflow-y-auto shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-start border-b border-[#ebdcd3] pb-3">
+              <div>
+                <div className="flex items-center space-x-1.5">
+                  <span className="text-lg">⚡</span>
+                  <h3 className="text-base font-black text-buna">Mobile 86'ing Stock Tool</h3>
+                </div>
+                <p className="text-[11px] text-buna-mocha">
+                  Toggle items sold out instantly from your phone when kitchen runs out
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIs86DrawerOpen(false)}
+                className="w-7 h-7 rounded-full bg-[#faf2ee] flex items-center justify-center text-xs font-bold text-buna"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-2.5">
+              {menuStock.map((it) => (
+                <div
+                  key={it.id}
+                  className="p-3.5 rounded-2xl border border-[#ebdcd3] flex items-center justify-between bg-[#faf5f0]"
+                >
+                  <div className="text-left space-y-0.5">
+                    <span className="text-xs font-black text-buna block">{it.name}</span>
+                    <span className="text-[10px] text-primary gees-text block" lang="am">
+                      {it.nameAm}
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuStock((prev) =>
+                        prev.map((x) => (x.id === it.id ? { ...x, available: !x.available } : x))
+                      );
+                    }}
+                    className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all shadow-sm ${
+                      it.available
+                        ? "bg-[#2D7A4D] text-white hover:bg-[#23633e]"
+                        : "bg-red-600 text-white hover:bg-red-700"
+                    }`}
+                  >
+                    {it.available ? "🟢 In Stock" : "🔴 86'd Out"}
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIs86DrawerOpen(false)}
+              className="w-full py-3 bg-primary text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow hover:bg-primary-container transition-all"
+            >
+              Done / Close Drawer ✓
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

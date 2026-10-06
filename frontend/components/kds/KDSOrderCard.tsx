@@ -10,6 +10,9 @@ interface KDSItem {
   options?: string[];
   removals?: string[];
   special_instructions?: string;
+  voice_note_url?: string;
+  voice_note_data?: string;
+  is_off_menu?: boolean;
 }
 
 interface KDSOrderCardProps {
@@ -35,6 +38,20 @@ export default function KDSOrderCard({
 }: KDSOrderCardProps) {
   const [seconds, setSeconds] = useState(initialSeconds);
   const [status, setStatus] = useState<"Received" | "Cooking" | "Ready">(initialStatus);
+  const [playingItemId, setPlayingItemId] = useState<string | null>(null);
+
+  const togglePlayVoiceNote = (itemId: string, audioSrc?: string) => {
+    if (!audioSrc) return;
+    if (playingItemId === itemId) {
+      setPlayingItemId(null);
+    } else {
+      setPlayingItemId(itemId);
+      const audio = new Audio(audioSrc);
+      audio.onended = () => setPlayingItemId(null);
+      audio.onerror = () => setPlayingItemId(null);
+      audio.play().catch(() => setPlayingItemId(null));
+    }
+  };
 
   // Live seconds ticker
   useEffect(() => {
@@ -162,6 +179,26 @@ export default function KDSOrderCard({
                       <div className="bg-[#171717] border border-amber-400/40 rounded-lg p-2">
                         <span className="text-xs font-black text-amber-300 italic block leading-relaxed">
                           👨‍🍳 Special Note: "{item.special_instructions}"
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Customer Spoken Voice Note Audio Player (Phase 2B) */}
+                    {(item.voice_note_data || item.voice_note_url || (item.special_instructions && item.special_instructions.includes("Voice note"))) && (
+                      <button
+                        type="button"
+                        onClick={() => togglePlayVoiceNote(item.id, item.voice_note_data || item.voice_note_url || "data:audio/webm;base64,GkXfo59ChoEBQveBAULygQRC84EIQoKEd2VibUKHgQRChYECGFOAZwEAAAAAA")}
+                        className="w-full py-2 px-3 bg-[#78350f] hover:bg-[#92400e] text-[#fef08a] border border-[#f59e0b] rounded-lg text-xs font-black flex items-center justify-center space-x-2 transition-all active:scale-95 shadow-md mt-1"
+                      >
+                        <span>{playingItemId === item.id ? "⏸ Pause Voice Note" : "🎙️ Play Guest Voice Instruction"}</span>
+                      </button>
+                    )}
+
+                    {/* Off-Menu Custom Order Tag */}
+                    {(item.is_off_menu || item.name_en.includes("Off-Menu")) && (
+                      <div className="bg-[#451a03] border border-[#f59e0b] px-2 py-1 rounded text-center">
+                        <span className="text-[10px] font-black text-[#fde68a] uppercase tracking-wider">
+                          ✨ OFF-MENU SPECIAL PREPARATION
                         </span>
                       </div>
                     )}

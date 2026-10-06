@@ -1,16 +1,19 @@
 package order
 
 import (
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
-	"fmt"
+	internalkds "menuflow/backend/internal/kds"
 	pkgauth "menuflow/backend/pkg/auth"
 	pkgmw "menuflow/backend/pkg/middleware"
 	pkgws "menuflow/backend/pkg/websocket"
-	internalkds "menuflow/backend/internal/kds"
 )
 
 type CancelOrderRequest struct {
@@ -669,4 +672,92 @@ func (h *Handler) HandleSettleTableBill(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(resp)
 }
+
+var (
+	audioMu    sync.RWMutex
+	audioStore = make(map[string][]byte)
+)
+
+// HandleUploadVoiceNote processes POST /api/v1/guest/orders/voice-note per Phase 2B
+func (h *Handler) HandleUploadVoiceNote(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var audioBytes []byte
+
+	// Check if JSON with base64 data
+	if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+		var req struct {
+			AudioBase64 string `json:"audio_base64"`
+			DurationSec int    `json:"duration_sec"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err == nil && req.AudioBase64 != "" {
+			rawB64 := req.AudioBase64
+			if idx := strings.Index(rawB64, ","); idx != -1 {
+				rawB64 = rawB64[idx+1:]
+			}
+			decoded, err := base64.StdEncoding.DecodeString(rawB64)
+			if err == nil {
+				audioBytes = decoded
+			}
+		}
+	} else {
+		data, err := io.ReadAll(io.LimitReader(r.Body, 10*1024*1024))
+		if err == nil {
+			audioBytes = data
+		}
+	}
+
+	if len(audioBytes) == 0 {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Empty or invalid audio data"})
+		return
+	}
+
+	voiceNoteID := fmt.Sprintf("vn-%d", time.Now().UnixNano())
+	audioMu.Lock()
+	audioStore[voiceNoteID] = audioBytes
+	audioMu.Unlock()
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":        "ok",
+		"voice_note_id": voiceNoteID,
+		"url":           fmt.Sprintf("/api/v1/audio/%s", voiceNoteID),
+	})
+}
+
+// HandleGetAudio processes GET /api/v1/audio/:id
+func (h *Handler) HandleGetAudio(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+	if len(parts) == 0 {
+		http.Error(w, "Not Found", http.StatusNotFound)
+		return
+	}
+	id := parts[len(parts)-1]
+
+	audioMu.RLock()
+	data, exists := audioStore[id]
+	audioMu.RUnlock()
+
+	if !exists {
+		http.Error(w, "Audio not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "audio/webm")
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(data)
+}
+
 

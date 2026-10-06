@@ -9,6 +9,7 @@ import ActiveTrayDrawer from "@/components/guest/ActiveTrayDrawer";
 import OfflineBanner from "@/components/guest/OfflineBanner";
 import QRErrorCard from "@/components/guest/QRErrorCard";
 import ServiceRequestModal from "@/components/guest/ServiceRequestModal";
+import OffMenuRequestModal from "@/components/guest/OffMenuRequestModal";
 import { loadActiveTrayLocal, saveActiveTrayLocal } from "@/lib/offline-storage";
 
 interface LandingProps {
@@ -30,6 +31,7 @@ export default function TableQRLandingPage({ params }: LandingProps) {
   const [trayItems, setTrayItems] = useState<any[]>([]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
+  const [isOffMenuOpen, setIsOffMenuOpen] = useState(false);
 
   useEffect(() => {
     if (params.token.includes("invalid")) {
@@ -832,17 +834,40 @@ export default function TableQRLandingPage({ params }: LandingProps) {
                     </span>
                   </div>
 
-                  {/* Action CTA Button */}
-                  <div className="pt-2">
-                    <button
-                      type="button"
-                      className="w-full py-3 bg-[#381a10] text-white rounded-2xl text-xs font-black tracking-wider uppercase shadow-md group-hover:bg-primary transition-all flex items-center justify-center space-x-2"
-                    >
-                      <span>Explore Drinks Menu</span>
-                      <span>→</span>
-                    </button>
+                    {/* Action CTA Button */}
+                    <div className="pt-2">
+                      <button
+                        type="button"
+                        className="w-full py-3 bg-[#381a10] text-white rounded-2xl text-xs font-black tracking-wider uppercase shadow-md group-hover:bg-primary transition-all flex items-center justify-center space-x-2"
+                      >
+                        <span>Explore Drinks Menu</span>
+                        <span>→</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
+
+              {/* CARD 3: OFF-MENU CHEF SPECIAL REQUEST (Phase 2B) */}
+              <div
+                onClick={() => setIsOffMenuOpen(true)}
+                className="bg-gradient-to-r from-[#241a13] to-[#3a2216] border-2 border-[#f59e0b]/40 rounded-3xl p-4 shadow-md text-white cursor-pointer hover:border-[#f59e0b] transition-all flex items-center justify-between active:scale-[0.98]"
+              >
+                <div className="flex items-center space-x-3 text-left">
+                  <div className="w-11 h-11 rounded-2xl bg-[#f59e0b]/20 flex items-center justify-center text-2xl shrink-0 border border-[#f59e0b]/30">
+                    ✨
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-black text-[#fef08a] uppercase tracking-wide">
+                      {lang === "am" ? "የልዩ ትዕዛዝ ጥያቄ (Off-Menu)" : "Request Off-Menu Dish or Drink"}
+                    </h3>
+                    <p className="text-[11px] text-[#d4d4d4] leading-snug mt-0.5">
+                      {lang === "am"
+                        ? "በሜኑ ውስጥ የሌለ ነገር ይፈልጋሉ? በጽሁፍ ወይም በድምጽ ያዝዙ"
+                        : "Craving something custom? Type or record a spoken voice note for the chef."}
+                    </p>
+                  </div>
+                </div>
+                <span className="text-base font-black text-[#fef08a] pl-2">→</span>
               </div>
             </div>
           </div>
@@ -993,6 +1018,17 @@ export default function TableQRLandingPage({ params }: LandingProps) {
         isOpen={isServiceModalOpen}
         tableLabel={resolved.label}
         onClose={() => setIsServiceModalOpen(false)}
+      />
+
+      {/* Off-Menu Custom Request Modal per Phase 2B */}
+      <OffMenuRequestModal
+        isOpen={isOffMenuOpen}
+        lang={lang}
+        onClose={() => setIsOffMenuOpen(false)}
+        onAddOffMenu={(customItem) => {
+          setTrayItems((prev) => [...prev, customItem]);
+          setIsTrayDrawerOpen(true);
+        }}
       />
     </div>
   );

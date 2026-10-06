@@ -102,6 +102,10 @@ func main() {
 	mux.HandleFunc("/api/v1/guest/tables/bill/request", orderHandler.HandleRequestBill)
 	mux.HandleFunc("/api/v1/guest/tables/bill/settle", orderHandler.HandleSettleTableBill)
 
+	// Spoken Voice Notes & Audio Streaming Endpoints per Phase 2B
+	mux.HandleFunc("/api/v1/guest/orders/voice-note", orderHandler.HandleUploadVoiceNote)
+	mux.HandleFunc("/api/v1/audio/", orderHandler.HandleGetAudio)
+
 	// KDS Live Ticket Pipeline Endpoints
 	mux.HandleFunc("/api/v1/kds/orders/active", kdsHandler.HandleGetActiveOrders)
 	mux.HandleFunc("/api/v1/kds/orders/status", kdsHandler.HandleUpdateStatus)

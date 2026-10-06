@@ -94,6 +94,10 @@ export default function WaiterAlertCard({
                       className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
                         c.toLowerCase().includes("no ")
                           ? "bg-red-100 text-red-700"
+                          : c.toLowerCase().includes("voice note")
+                          ? "bg-amber-100 text-amber-800 border border-amber-300 font-black"
+                          : c.toLowerCase().includes("off-menu")
+                          ? "bg-amber-200 text-amber-900 border border-amber-400 font-black"
                           : "bg-primary/10 text-primary"
                       }`}
                     >
