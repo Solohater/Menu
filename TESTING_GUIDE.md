@@ -9,6 +9,9 @@
 ![MenuFlow Multi-Surface UI Suite](menuflow_ui_suite.jpg)
 *Figure 1: Complete MenuFlow Operations Suite — Customer Mobile PWA (Table 04), Chef KDS Landscape Display, Waiter Handheld Runner, and Desktop Manager Command Center.*
 
+![MenuFlow Advanced Voice, Zones & 5-Year Analytics Suite](menuflow_advanced_features.jpg)
+*Figure 2: Advanced Features Suite — Spoken Voice Notes & Off-Menu Requests (PWA), Floor Zones & Mobile 86'ing Stock Tool (Waiter Handheld), Kitchen Audio Player (KDS), and 5-Year Quantified ROI Analytics & Rush Heatmap (Admin).*
+
 ---
 
 ## 1. Quick Start: Running the Platform
