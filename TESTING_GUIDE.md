@@ -35,12 +35,13 @@ npm run dev
 
 | Surface Role | Localhost URL | Network URL (Mobile / Tablet) | Purpose & Key Features |
 |---|---|---|---|
-| **Customer Menu (Dine-in)** | [`http://localhost:3000/t/demo_token/menu`](http://localhost:3000/t/demo_token/menu) | `http://10.10.4.109:3000/t/demo_token/menu` | Browse food/drinks, bilingual EN/አማ toggle, dish customization drawer, **🛎️ Table Assistance Bell**, cart tray dock. |
+| **Customer Menu (Dine-in)** | [`http://localhost:3000/t/demo_token/menu`](http://localhost:3000/t/demo_token/menu) | `http://10.10.4.109:3000/t/demo_token/menu` | Browse food/drinks, bilingual EN/አማ toggle, dish customization drawer, **🛎️ Table Assistance Bell**, **🧾 View Digital Bill**, cart tray dock. |
 | **Customer Menu (Takeaway)** | [`http://localhost:3000/p/demo_token/menu`](http://localhost:3000/p/demo_token/menu) | `http://10.10.4.109:3000/p/demo_token/menu` | Pickup #P04 takeaway ordering with packaging options. |
-| **Tray Checkout** | [`http://localhost:3000/checkout`](http://localhost:3000/checkout) | `http://10.10.4.109:3000/checkout` | Itemized review, 10% Service + 15% VAT invoice calculation, Telebirr/Chapa/CBE/Cash selection, **live backend order dispatch**. |
-| **Live Order Progress Tracker** | [`http://localhost:3000/order/01J8ORD100`](http://localhost:3000/order/01J8ORD100) | `http://10.10.4.109:3000/order/01J8ORD100` | Real-time WebSocket 4-step status timeline, pickup alert, **🛎️ Table Service Request Modal**. |
+| **Tray Checkout** | [`http://localhost:3000/checkout`](http://localhost:3000/checkout) | `http://10.10.4.109:3000/checkout` | Itemized review, 10% Service + 15% VAT calculation, **Dine First (Add to Tab)** / Telebirr / Chapa / CBE / Cash, live backend dispatch. |
+| **Live Order Progress Tracker** | [`http://localhost:3000/order/01J8ORD100`](http://localhost:3000/order/01J8ORD100) | `http://10.10.4.109:3000/order/01J8ORD100` | Real-time WebSocket 4-step status timeline, pickup alert, **🛎️ Call Waiter**, **💳 View Digital Bill & Settle**. |
+| **Table Digital Bill & Settle** | [`http://localhost:3000/t/demo_token/bill`](http://localhost:3000/t/demo_token/bill) | `http://10.10.4.109:3000/t/demo_token/bill` | **Consolidated multi-round bill**, itemized rounds, 10% Service + 15% VAT, 1-tap Telebirr/Chapa/CBE settlement, **Ethiopian Fiscal Receipt generator**. |
 | **Chef Kitchen Display (KDS)** | [`http://localhost:3000/kds`](http://localhost:3000/kds) | `http://10.10.4.109:3000/kds` | High-contrast dark mode, aging warning badges (<8m green, 8–15m amber, >15m red), **live incoming ticket chimes**, 1-tap **Bump** button. |
-| **Waiter Runner Handheld** | [`http://localhost:3000/waiter`](http://localhost:3000/waiter) | `http://10.10.4.109:3000/waiter` | Priority "Ready" orders queue, **active table assistance alerts (Water, Waiter, Bill)** with `[ On My Way 🏃 ]` and `[ Done ✓ ]`, 1-tap **`[ MARK DELIVERED ✔ ]`**. |
+| **Waiter Runner Handheld** | [`http://localhost:3000/waiter`](http://localhost:3000/waiter) | `http://10.10.4.109:3000/waiter` | Priority "Ready" orders queue, **live table assistance alerts (Water, Waiter, Bill)**, **💰 Live Bill Settled Banners**, 1-tap **`[ MARK DELIVERED ✔ ]`**. |
 | **Desktop Manager Command Center** | [`http://localhost:3000/admin`](http://localhost:3000/admin) | `http://10.10.4.109:3000/admin` | Persistent sidebar, weekly sales spline chart, live active floor map, 1-tap stock availability switches (86'ing). |
 | **Cashier Till Register** | [`http://localhost:3000/admin/cashier`](http://localhost:3000/admin/cashier) | `http://10.10.4.109:3000/admin/cashier` | Live cash orders to collect, settled till history, 1-tap `[ ✓ Mark Cash Paid ]`. |
 | **Sales Analytics & Orders** | [`http://localhost:3000/admin/orders`](http://localhost:3000/admin/orders) | `http://10.10.4.109:3000/admin/orders` | Gross sales in ETB, AOV, best-sellers ranking, and provider reconciliation (Telebirr vs Chapa vs CBE vs Cash). |
@@ -153,6 +154,55 @@ npm run dev
 
 ---
 
+### 🧪 Test Scenario 6: Dine-First Multi-Round Tabs & Post-Dining Digital Bill Settlement
+*(The authentic Ethiopian café & dining workflow: order Round 1, order Round 2, eat & drink first, view running digital bill, pay via Telebirr/Chapa/CBE/Cash, cashier & waiter automatically notified, fiscal receipt generated).*
+
+1. **Step 1: Customer Places Round 1 (No Upfront Payment Required):**
+   - Open [`http://10.10.4.109:3000/t/demo_token/menu`](http://10.10.4.109:3000/t/demo_token/menu).
+   - Add **Special Sizzling Shekla Tibs** (ETB 480 × 2) to tray.
+   - Go to [`http://10.10.4.109:3000/checkout`](http://10.10.4.109:3000/checkout).
+   - Notice the default recommended option: **🍽️ Dine First — Add to Table Tab (በጠረጴዛ ሂሳብ)**.
+   - Tap **"Send Round to Kitchen (Add to Tab)"**.
+   - Confirmation screen displays: *"Dispatched to Kitchen! Added to Table 04 Tab. You can order more rounds anytime and settle your bill after dining."*
+2. **Step 2: Kitchen & Waiter Handle Round 1:**
+   - KDS at [`http://10.10.4.109:3000/kds`](http://10.10.4.109:3000/kds) chimes and shows `R1-04` ticket.
+   - Chef bumps to Cooking $\rightarrow$ Ready.
+   - Waiter Handheld at [`http://10.10.4.109:3000/waiter`](http://10.10.4.109:3000/waiter) alerts and runner taps `[ MARK DELIVERED ✔ ]`.
+3. **Step 3: Customer Orders Round 2 (Coffee / Drinks) Without Calling Waiter:**
+   - Return to [`http://10.10.4.109:3000/t/demo_token/menu`](http://10.10.4.109:3000/t/demo_token/menu).
+   - Add **Traditional Jebena Buna** or **St George Cold Beer** (Qty: 3 × ETB 70).
+   - Tap **Checkout** $\rightarrow$ **Send Round to Kitchen (Add to Tab)**.
+   - The kitchen receives Round 2 immediately!
+4. **Step 4: Customer Views Post-Dining Digital Bill:**
+   - On the menu header, tap the **`🧾` Bill icon**, or visit [`http://10.10.4.109:3000/t/demo_token/bill`](http://10.10.4.109:3000/t/demo_token/bill).
+   - The digital bill screen displays:
+     - **Dishes & Drinks by Dining Round**:
+       - Round #1 (Shekla Tibs × 2) = ETB 960
+       - Round #2 (St George Beer × 3) = ETB 210
+     - **Consolidated Tax Invoice**:
+       - Items Subtotal: ETB 1,170.00
+       - Hospitality Service Surcharge (10%): ETB 117.00
+       - Ethiopian VAT (15%): ETB 175.50
+       - **Total Due**: **ETB 1,462.50**
+5. **Step 5: Customer Pays via Telebirr or CBE Direct:**
+   - Select **Telebirr (ቴሌብር)** $\rightarrow$ Tap **"Settle ETB 1462.5 via TELEBIRR →"**.
+   - The settlement is processed and broadcasts instantly to the restaurant network!
+6. **Step 6: Real-Time Cashier & Waiter Alert Cascade:**
+   - **Look at Waiter Handheld (`/waiter`):**
+     - An instant celebratory chime rings!
+     - A glowing green alert card flashes:  
+       `💰 TABLE 04 BILL SETTLED! • Amount: ETB 1,462.50 via TELEBIRR. Table cleared for turnover.`
+   - **Look at Customer Screen (`/t/demo_token/bill`):**
+     - Automatically renders the **Official Ethiopian Fiscal Receipt**:
+       - Status: `● PAID / ተከፍሏል`
+       - Fiscal Receipt No: `FS-ET-9823412`
+       - TIN: `0083921045`
+       - VAT Reg: `VAT-AA-092-120`
+       - Payment Rail & Reference
+       - 1-tap **"📄 Print / Save Digital Receipt"** button!
+
+---
+
 ## 4. Verification Checklists
 
 - [x] Go backend API running on port `8080` with RFC 6455 WebSockets.
@@ -160,6 +210,11 @@ npm run dev
 - [x] Customer QR menu accessible via table token `/t/demo_token/menu`.
 - [x] Live assistance modal operational with 5 request types (Water, Waiter, Cutlery, Bill, Issue).
 - [x] Real-time order creation connected to backend `POST /api/v1/orders/create`.
+- [x] Dine-first multi-round table session engine (`POST /api/v1/guest/orders/submit-round`).
+- [x] Post-dining consolidated digital bill (`/t/[token]/bill` & `GET /api/v1/guest/tables/bill`).
+- [x] Instant digital settlement cascade (`POST /api/v1/guest/tables/bill/settle`) broadcasting to Waiter & Cashier.
+- [x] Ethiopian Fiscal Receipt generator with TIN, VAT registration, and printable invoice.
 - [x] KDS live socket reception and 2-stage Bump state transitions.
-- [x] Waiter handheld ready alerts and 1-tap "Mark Delivered" action.
+- [x] Waiter handheld ready alerts, live bill settlement banner, and 1-tap "Mark Delivered" action.
 - [x] Cashier till settlement register operational.
+

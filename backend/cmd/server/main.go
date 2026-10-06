@@ -53,7 +53,8 @@ func main() {
 	kdsHandler := kds.NewHandler(kdsRepo, hub)
 
 	orderRepo := order.NewMemoryRepository()
-	orderHandler := order.NewHandler(orderRepo).WithKDS(kdsRepo, hub)
+	sessionRepo := order.NewMemorySessionRepository()
+	orderHandler := order.NewHandler(orderRepo).WithKDS(kdsRepo, hub).WithSessionRepo(sessionRepo)
 
 	tenantRepo := tenant.NewMemoryRepository()
 	tenantSecret := "menuflow_dev_secret_key_32bytes!"
@@ -93,6 +94,13 @@ func main() {
 		}
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 	})
+
+	// Multi-Round Table Tabs & Post-Dining Digital Bill Endpoints
+	mux.HandleFunc("/api/v1/guest/tables/session", orderHandler.HandleGetTableSession)
+	mux.HandleFunc("/api/v1/guest/orders/submit-round", orderHandler.HandleSubmitRound)
+	mux.HandleFunc("/api/v1/guest/tables/bill", orderHandler.HandleGetTableBill)
+	mux.HandleFunc("/api/v1/guest/tables/bill/request", orderHandler.HandleRequestBill)
+	mux.HandleFunc("/api/v1/guest/tables/bill/settle", orderHandler.HandleSettleTableBill)
 
 	// KDS Live Ticket Pipeline Endpoints
 	mux.HandleFunc("/api/v1/kds/orders/active", kdsHandler.HandleGetActiveOrders)

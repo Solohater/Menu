@@ -657,6 +657,16 @@ export default function TableQRLandingPage({ params }: LandingProps) {
             <span className="text-xl">🛎️</span>
           </button>
 
+          {/* View Table Bill & Settle Button */}
+          <Link
+            href={`/t/${params.token}/bill`}
+            className="relative flex items-center justify-center w-10 h-10 rounded-2xl bg-white border border-[#ebdcd3] shadow-sm hover:bg-[#faf2ee] active:scale-95 transition-all text-buna"
+            aria-label="View Table Digital Bill & Open Tab"
+            title="View Table Bill & Digital Settle"
+          >
+            <span className="text-xl">🧾</span>
+          </Link>
+
           {/* Top Cart Icon Button - As Requested by User */}
           <button
             type="button"

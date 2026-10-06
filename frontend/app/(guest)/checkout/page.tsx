@@ -53,7 +53,7 @@ export default function TrayCheckoutPage() {
     }
   }, []);
 
-  const [selectedRail, setSelectedRail] = useState("telebirr");
+  const [selectedRail, setSelectedRail] = useState("tab");
   const [orderConfirmed, setOrderConfirmed] = useState<any>(null);
 
   const subtotal = items.reduce((acc, i) => acc + i.final_price * i.quantity, 0);
@@ -73,38 +73,65 @@ export default function TrayCheckoutPage() {
     setIsSubmitting(true);
     let orderId = `MF-${Math.floor(8000 + Math.random() * 900)}-T04`;
 
+    const mappedItems = items.map((i) => ({
+      menu_item_id: i.name_en,
+      quantity: i.quantity,
+      unit_price: i.final_price,
+      special_instructions: [
+        i.special_instructions,
+        i.selected_removals ? Object.keys(i.selected_removals).filter(k => i.selected_removals![k]).join(", ") : "",
+        i.selected_addons ? Object.keys(i.selected_addons).filter(k => i.selected_addons![k]).map(k => `+ ${k}`).join(", ") : "",
+      ].filter(Boolean).join(" | "),
+    }));
+
     try {
-      const backendUrl = typeof window !== "undefined"
-        ? `${window.location.protocol}//${window.location.hostname}:8080/api/v1/orders/create`
-        : "http://localhost:8080/api/v1/orders/create";
+      if (selectedRail === "tab") {
+        // Submit as Round to Table Session
+        const roundUrl = typeof window !== "undefined"
+          ? `${window.location.protocol}//${window.location.hostname}:8080/api/v1/guest/orders/submit-round`
+          : "http://localhost:8080/api/v1/guest/orders/submit-round";
 
-      const orderPayload = {
-        restaurant_id: "01J8RESTAURANT000000000001",
-        table_id: "04",
-        provider: selectedRail,
-        order_intent_id: `intent-${Date.now()}`,
-        items: items.map((i) => ({
-          menu_item_id: i.name_en,
-          quantity: i.quantity,
-          unit_price: i.final_price,
-          special_instructions: [
-            i.special_instructions,
-            i.selected_removals ? Object.keys(i.selected_removals).filter(k => i.selected_removals![k]).join(", ") : "",
-            i.selected_addons ? Object.keys(i.selected_addons).filter(k => i.selected_addons![k]).map(k => `+ ${k}`).join(", ") : "",
-          ].filter(Boolean).join(" | "),
-        })),
-      };
+        const res = await fetch(roundUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            restaurant_id: "01J8RESTAURANT000000000001",
+            table_id: "04",
+            table_label: "Table 04",
+            items: mappedItems,
+          }),
+        });
 
-      const res = await fetch(backendUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(orderPayload),
-      });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.rounds && data.rounds.length > 0) {
+            orderId = data.rounds[data.rounds.length - 1].order_id;
+          }
+        }
+      } else {
+        const backendUrl = typeof window !== "undefined"
+          ? `${window.location.protocol}//${window.location.hostname}:8080/api/v1/orders/create`
+          : "http://localhost:8080/api/v1/orders/create";
 
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.id) {
-          orderId = data.id;
+        const orderPayload = {
+          restaurant_id: "01J8RESTAURANT000000000001",
+          table_id: "04",
+          provider: selectedRail,
+          order_intent_id: `intent-${Date.now()}`,
+          items: mappedItems,
+        };
+
+        const res = await fetch(backendUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(orderPayload),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.id) {
+            orderId = data.id;
+          }
         }
       }
     } catch (err) {
@@ -113,12 +140,22 @@ export default function TrayCheckoutPage() {
       setIsSubmitting(false);
     }
 
-    if (selectedRail === "cash") {
+    if (selectedRail === "tab") {
+      setOrderConfirmed({
+        order_id: orderId,
+        status: "Dispatched to Kitchen",
+        payment_status: "unpaid",
+        total: totalPayable,
+        is_tab: true,
+        message: "Your round has been sent directly to the Kitchen Chef! It is added to your Table 04 Tab. You can order more rounds anytime and settle your bill after dining.",
+      });
+    } else if (selectedRail === "cash") {
       setOrderConfirmed({
         order_id: orderId,
         status: "Received by Kitchen & Cashier",
         payment_status: "unpaid",
         total: totalPayable,
+        is_tab: false,
         message: "Order dispatched to Kitchen chef and Cashier register! Please pay cash with the waiter or cashier counter.",
       });
     } else {
@@ -127,6 +164,7 @@ export default function TrayCheckoutPage() {
         status: "Payment Confirmed",
         payment_status: "paid",
         total: totalPayable,
+        is_tab: false,
         message: `Payment authorized via ${selectedRail.toUpperCase()}. Dispatched to Kitchen chef and Cashier!`,
       });
     }
@@ -174,11 +212,19 @@ export default function TrayCheckoutPage() {
             >
               Track Live Kitchen Progress →
             </Link>
+            {orderConfirmed.is_tab && (
+              <Link
+                href="/t/demo_token/bill"
+                className="w-full py-3 bg-[#faf2ee] border border-[#ebdcd3] text-primary font-black text-xs rounded-2xl shadow-sm hover:bg-[#ebdcd3] transition-all block text-center uppercase tracking-wider"
+              >
+                View Table Bill & Digital Pay (ETB {orderConfirmed.total}) →
+              </Link>
+            )}
             <Link
               href="/t/demo_token/menu"
               className="w-full py-2.5 bg-transparent text-buna-mocha font-bold text-xs rounded-xl hover:text-buna transition-colors block text-center"
             >
-              Back to Menu
+              {orderConfirmed.is_tab ? "+ Order Another Dish / Round" : "Back to Menu"}
             </Link>
           </div>
         </div>
@@ -214,7 +260,7 @@ export default function TrayCheckoutPage() {
       <div>
         <h1 className="text-2xl font-black text-buna tracking-tight">Review Tray & Checkout</h1>
         <p className="text-xs text-buna-mocha font-medium mt-0.5">
-          Verify your customized foods & drinks before payment.
+          Verify your customized foods & drinks before sending to kitchen.
         </p>
       </div>
 
@@ -306,7 +352,7 @@ export default function TrayCheckoutPage() {
 
         <div className="border-t border-[#ebdcd3]/60 pt-3 flex justify-between items-baseline">
           <div>
-            <span className="text-xs font-black text-buna uppercase block">Total Payable</span>
+            <span className="text-xs font-black text-buna uppercase block">Total Amount</span>
             <span className="text-[10px] text-primary font-bold gees-text block" lang="am">
               የሚከፈል አጠቃላይ ድምር
             </span>
@@ -318,12 +364,13 @@ export default function TrayCheckoutPage() {
       {/* Payment Selection Card */}
       <div className="bg-white rounded-3xl border border-[#ebdcd3] p-5 shadow-sm space-y-3">
         <span className="text-[11px] font-bold text-buna-mocha uppercase tracking-wider block border-b border-[#ebdcd3]/50 pb-2">
-          Payment Method
+          Ordering & Payment Flow
         </span>
 
         <div className="space-y-2">
           {[
-            { id: "telebirr", name: "Telebirr (ቴሌብር)", icon: "📲", desc: "SuperApp Push & PIN confirmation" },
+            { id: "tab", name: "Dine First — Add to Table Tab (በጠረጴዛ ሂሳብ)", icon: "🍽️", desc: "Pay later. Send order to kitchen now, settle bill after dining", recommended: true },
+            { id: "telebirr", name: "Telebirr (ቴሌብር)", icon: "📲", desc: "SuperApp Push & Instant QR" },
             { id: "chapa", name: "Chapa Gateway (ቻፓ)", icon: "💳", desc: "Awash, Dashen, CBE Birr & Cards" },
             { id: "cbe", name: "CBE Direct (ንግድ ባንክ)", icon: "🏦", desc: "Commercial Bank of Ethiopia Direct" },
             { id: "cash", name: "Cash at Table (በጥሬ ገንዘብ)", icon: "💵", desc: "Pay cash to floor waiter or cashier" },
@@ -339,7 +386,14 @@ export default function TrayCheckoutPage() {
               <div className="flex items-center space-x-3">
                 <span className="text-xl">{rail.icon}</span>
                 <div>
-                  <span className="text-xs font-black text-buna block">{rail.name}</span>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs font-black text-buna block">{rail.name}</span>
+                    {rail.recommended && (
+                      <span className="text-[9px] bg-primary text-white font-extrabold px-1.5 py-0.5 rounded">
+                        RECOMMENDED
+                      </span>
+                    )}
+                  </div>
                   <span className="text-[10px] text-buna-mocha block">{rail.desc}</span>
                 </div>
               </div>
@@ -361,14 +415,21 @@ export default function TrayCheckoutPage() {
         <button
           type="button"
           onClick={handlePlaceOrder}
-          disabled={hasSoldOutItem}
-          className="w-full py-4 bg-gradient-to-r from-[#9d3e0f] to-[#bd5627] hover:from-[#88350d] hover:to-[#a84c22] text-white font-black text-sm uppercase tracking-wider rounded-2xl shadow-lg transition-all transform active:scale-95 flex items-center justify-center space-x-2"
+          disabled={hasSoldOutItem || isSubmitting}
+          className="w-full py-4 bg-gradient-to-r from-[#9d3e0f] to-[#bd5627] hover:from-[#88350d] hover:to-[#a84c22] text-white font-black text-sm uppercase tracking-wider rounded-2xl shadow-lg transition-all transform active:scale-95 flex items-center justify-center space-x-2 disabled:opacity-50"
         >
           <span>
-            {selectedRail === "telebirr" && `Pay ETB ${totalPayable} via Telebirr`}
-            {selectedRail === "chapa" && `Pay ETB ${totalPayable} via Chapa`}
-            {selectedRail === "cbe" && `Pay ETB ${totalPayable} via CBE Direct`}
-            {selectedRail === "cash" && `Confirm Table 04 Order (Cash)`}
+            {isSubmitting
+              ? "Submitting Order..."
+              : selectedRail === "tab"
+              ? `Send Round to Kitchen (Add to Tab: ETB ${totalPayable})`
+              : selectedRail === "telebirr"
+              ? `Pay ETB ${totalPayable} via Telebirr`
+              : selectedRail === "chapa"
+              ? `Pay ETB ${totalPayable} via Chapa`
+              : selectedRail === "cbe"
+              ? `Pay ETB ${totalPayable} via CBE Direct`
+              : `Confirm Table 04 Order (Cash)`}
           </span>
           <span>→</span>
         </button>

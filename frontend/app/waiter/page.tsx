@@ -112,6 +112,17 @@ export default function WaiterAppPage() {
     },
   ]);
 
+  interface SettledNotification {
+    id: string;
+    tableLabel: string;
+    totalAmount: number;
+    provider: string;
+    bankReference?: string;
+    timestamp: string;
+  }
+
+  const [settledNotifs, setSettledNotifs] = useState<SettledNotification[]>([]);
+
   // 1. Fetch initial service requests from backend
   useEffect(() => {
     async function loadRequests() {
@@ -138,14 +149,16 @@ export default function WaiterAppPage() {
     loadRequests();
   }, []);
 
-  // 2. Connect to real-time WebSocket for kitchen ready pings & guest assistance calls
+  // 2. Connect to real-time WebSocket for kitchen ready pings & guest assistance calls & settlement
   useEffect(() => {
     const ws = new MenuFlowWebSocketClient("restaurant:01J8RESTAURANT000000000001:waiter");
     ws.connect((msg) => {
       if (!msg) return;
 
+      const eventType = msg.event_type || msg.event;
+
       // Handle Kitchen Ready Order alert
-      if (msg.event_type === "order.ready" && msg.payload) {
+      if (eventType === "order.ready" && msg.payload) {
         playChime(850, 3);
         const p = msg.payload;
         const newAlert: WaiterAlert = {
@@ -163,8 +176,38 @@ export default function WaiterAppPage() {
         setAlerts((prev) => [newAlert, ...prev]);
       }
 
+      // Handle Table Bill Settled notification
+      if (eventType === "table.settled" && msg.payload) {
+        playChime(950, 3);
+        const p = msg.payload;
+        const notif: SettledNotification = {
+          id: `settle-${Date.now()}`,
+          tableLabel: p.table_label || `Table ${p.table_id || "04"}`,
+          totalAmount: p.total_amount || 0,
+          provider: p.provider || "telebirr",
+          bankReference: p.bank_reference,
+          timestamp: "Just now",
+        };
+        setSettledNotifs((prev) => [notif, ...prev]);
+      }
+
+      // Handle Guest Table Bill Request
+      if (eventType === "table.bill_requested" && msg.payload) {
+        playChime(750, 2);
+        const p = msg.payload;
+        const newReq: ServiceRequestItem = {
+          id: `req-bill-${Date.now()}`,
+          table_id: p.table_id || "04",
+          table_label: `Table ${p.table_id || "04"}`,
+          request_type: "bill",
+          details: p.message || "Customer requested final bill / cash collection",
+          status: "pending",
+        };
+        setServiceRequests((prev) => [newReq, ...prev]);
+      }
+
       // Handle Guest Table Service Request alert
-      if (msg.event_type === "service.requested" && msg.payload) {
+      if (eventType === "service.requested" && msg.payload) {
         playChime(650, 2);
         const p = msg.payload;
         const newReq: ServiceRequestItem = {
@@ -290,6 +333,37 @@ export default function WaiterAppPage() {
           </button>
         </div>
       </header>
+
+      {/* Real-Time Table Settlement Notification Banners */}
+      {settledNotifs.length > 0 && (
+        <div className="space-y-2">
+          {settledNotifs.map((sn) => (
+            <div
+              key={sn.id}
+              className="p-3.5 bg-[#2D7A4D]/10 border-2 border-[#2D7A4D]/40 rounded-2xl flex items-center justify-between text-xs shadow-sm animate-pulse"
+            >
+              <div className="space-y-0.5">
+                <div className="flex items-center space-x-1.5">
+                  <span className="font-black text-[#2D7A4D]">💰 {sn.tableLabel} BILL SETTLED!</span>
+                  <span className="bg-[#2D7A4D] text-white text-[9px] font-black px-1.5 py-0.5 rounded uppercase">
+                    {sn.provider}
+                  </span>
+                </div>
+                <p className="text-[11px] text-buna-mocha">
+                  Amount: <strong className="text-buna">ETB {sn.totalAmount}</strong> • Ref: {sn.bankReference || "TB-DIRECT"}. Table cleared for turnover.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSettledNotifs((prev) => prev.filter((x) => x.id !== sn.id))}
+                className="px-2.5 py-1.5 bg-white border border-[#2D7A4D]/40 text-[#2D7A4D] font-black text-[10px] rounded-xl hover:bg-[#2D7A4D]/10 shrink-0 ml-2"
+              >
+                Clear ✓
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Guest Assistance Bell Alert Queue */}
       {serviceRequests.length > 0 && (

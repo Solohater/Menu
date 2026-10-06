@@ -43,9 +43,10 @@ type SalesSummaryResponse struct {
 }
 
 type Handler struct {
-	repo    Repository
-	kdsRepo internalkds.Repository
-	hub     *pkgws.Hub
+	repo        Repository
+	sessionRepo SessionRepository
+	kdsRepo     internalkds.Repository
+	hub         *pkgws.Hub
 }
 
 func NewHandler(repo Repository) *Handler {
@@ -55,6 +56,11 @@ func NewHandler(repo Repository) *Handler {
 func (h *Handler) WithKDS(kdsRepo internalkds.Repository, hub *pkgws.Hub) *Handler {
 	h.kdsRepo = kdsRepo
 	h.hub = hub
+	return h
+}
+
+func (h *Handler) WithSessionRepo(sessionRepo SessionRepository) *Handler {
+	h.sessionRepo = sessionRepo
 	return h
 }
 
@@ -328,3 +334,339 @@ func (h *Handler) HandleGetSalesSummary(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(resp)
 }
+
+// HandleGetTableSession processes GET /api/v1/guest/tables/session?table_id=...
+func (h *Handler) HandleGetTableSession(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	tableID := r.URL.Query().Get("table_id")
+	if tableID == "" {
+		tableID = "04"
+	}
+
+	restaurantID := "01J8RESTAURANT000000000001"
+	if rid, ok := r.Context().Value(pkgmw.TenantIDKey).(string); ok && rid != "" {
+		restaurantID = rid
+	}
+
+	if h.sessionRepo == nil {
+		http.Error(w, "Session repository not configured", http.StatusInternalServerError)
+		return
+	}
+
+	sess, err := h.sessionRepo.GetActiveSession(r.Context(), restaurantID, tableID)
+	if err != nil {
+		// Not an error, return empty active session structure or create it
+		sess, err = h.sessionRepo.GetOrCreateActiveSession(r.Context(), restaurantID, tableID, "Table "+tableID)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(sess)
+}
+
+// HandleSubmitRound processes POST /api/v1/guest/orders/submit-round (Multi-Round Open Tab)
+func (h *Handler) HandleSubmitRound(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req SubmitRoundRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid request body"})
+		return
+	}
+
+	if len(req.Items) == 0 {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Round items cannot be empty"})
+		return
+	}
+
+	if req.TableID == "" {
+		req.TableID = "04"
+	}
+	if req.RestaurantID == "" {
+		req.RestaurantID = "01J8RESTAURANT000000000001"
+	}
+	if req.TableLabel == "" {
+		req.TableLabel = "Table " + req.TableID
+	}
+
+	if h.sessionRepo == nil {
+		http.Error(w, "Session repository not configured", http.StatusInternalServerError)
+		return
+	}
+
+	sess, err := h.sessionRepo.GetOrCreateActiveSession(r.Context(), req.RestaurantID, req.TableID, req.TableLabel)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	roundOrderID := fmt.Sprintf("01J8RND%d", time.Now().UnixNano())
+	newRound := TableRound{
+		OrderID:     roundOrderID,
+		Status:      "Received",
+		Items:       req.Items,
+		SubmittedAt: time.Now().UTC(),
+	}
+
+	updatedSession, err := h.sessionRepo.AddRound(r.Context(), sess.ID, newRound)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// 1. Sync round to Kitchen Display System (KDS)
+	if h.kdsRepo != nil {
+		kdsItems := make([]internalkds.KDSItem, 0, len(req.Items))
+		for _, item := range req.Items {
+			name := item.MenuItemID
+			if name == "" {
+				name = "Special Order Item"
+			}
+			kdsItems = append(kdsItems, internalkds.KDSItem{
+				ID:                  item.ID,
+				NameEN:              name,
+				NameAM:              name,
+				Quantity:            item.Quantity,
+				SpecialInstructions: item.SpecialInstructions,
+			})
+		}
+		roundCard := internalkds.KDSOrderCard{
+			ID:            roundOrderID,
+			OrderRef:      fmt.Sprintf("R%d-%s", len(updatedSession.Rounds), req.TableID),
+			RestaurantID:  req.RestaurantID,
+			TableLabel:    req.TableLabel,
+			TableType:     "table",
+			Status:        "Received",
+			PaymentStatus: "unpaid",
+			Items:         kdsItems,
+			CreatedAt:     time.Now().UTC(),
+		}
+		_, _ = h.kdsRepo.AddOrder(r.Context(), roundCard)
+	}
+
+	// 2. Broadcast round added over WebSockets
+	if h.hub != nil {
+		_ = h.hub.Broadcast("restaurant:"+req.RestaurantID+":kds", "order.created", updatedSession)
+		_ = h.hub.Broadcast("restaurant:"+req.RestaurantID+":waiter", "table.round_added", map[string]interface{}{
+			"table_id":     req.TableID,
+			"table_label":  req.TableLabel,
+			"round_number": len(updatedSession.Rounds),
+			"items_count":  len(req.Items),
+			"subtotal":     updatedSession.Subtotal,
+		})
+		_ = h.hub.Broadcast("table:"+req.TableID+":session", "table.round_added", updatedSession)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(updatedSession)
+}
+
+// HandleGetTableBill processes GET /api/v1/guest/tables/bill?table_id=...
+func (h *Handler) HandleGetTableBill(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	tableID := r.URL.Query().Get("table_id")
+	if tableID == "" {
+		tableID = "04"
+	}
+
+	restaurantID := "01J8RESTAURANT000000000001"
+	if rid, ok := r.Context().Value(pkgmw.TenantIDKey).(string); ok && rid != "" {
+		restaurantID = rid
+	}
+
+	if h.sessionRepo == nil {
+		http.Error(w, "Session repository not configured", http.StatusInternalServerError)
+		return
+	}
+
+	sess, err := h.sessionRepo.GetActiveSession(r.Context(), restaurantID, tableID)
+	if err != nil {
+		// Provide empty initialized bill if no active orders yet
+		sess, _ = h.sessionRepo.GetOrCreateActiveSession(r.Context(), restaurantID, tableID, "Table "+tableID)
+	}
+
+	var allItems []OrderItem
+	for _, rnd := range sess.Rounds {
+		allItems = append(allItems, rnd.Items...)
+	}
+
+	billResp := TableBillResponse{
+		SessionID:           sess.ID,
+		RestaurantID:        sess.RestaurantID,
+		TableID:             sess.TableID,
+		TableLabel:          sess.TableLabel,
+		Status:              sess.Status,
+		PaymentStatus:       sess.PaymentStatus,
+		PaymentProvider:     sess.PaymentProvider,
+		BankReference:       sess.BankReference,
+		Subtotal:            sess.Subtotal,
+		ServiceChargeAmount: sess.ServiceChargeAmount,
+		TaxAmount:           sess.TaxAmount,
+		TotalAmount:         sess.TotalAmount,
+		AllItems:            allItems,
+		Rounds:              sess.Rounds,
+		OpenedAt:            sess.OpenedAt,
+		ClosedAt:            sess.ClosedAt,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(billResp)
+}
+
+// HandleRequestBill processes POST /api/v1/guest/tables/bill/request
+func (h *Handler) HandleRequestBill(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	type reqBody struct {
+		TableID   string `json:"table_id"`
+		SessionID string `json:"session_id"`
+	}
+	var req reqBody
+	_ = json.NewDecoder(r.Body).Decode(&req)
+
+	if req.TableID == "" {
+		req.TableID = "04"
+	}
+	restaurantID := "01J8RESTAURANT000000000001"
+
+	if h.sessionRepo != nil {
+		sess, err := h.sessionRepo.GetActiveSession(r.Context(), restaurantID, req.TableID)
+		if err == nil {
+			_, _ = h.sessionRepo.RequestBill(r.Context(), sess.ID)
+		}
+	}
+
+	if h.hub != nil {
+		_ = h.hub.Broadcast("restaurant:"+restaurantID+":waiter", "table.bill_requested", map[string]interface{}{
+			"table_id": req.TableID,
+			"message":  "Table " + req.TableID + " requested the final bill.",
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "message": "Bill requested from staff"})
+}
+
+// HandleSettleTableBill processes POST /api/v1/guest/tables/bill/settle
+func (h *Handler) HandleSettleTableBill(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	type settleReq struct {
+		SessionID     string `json:"session_id"`
+		TableID       string `json:"table_id"`
+		Provider      string `json:"provider"` // telebirr | chapa | cbe | cash
+		BankReference string `json:"bank_reference,omitempty"`
+	}
+
+	var req settleReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid request body"})
+		return
+	}
+
+	if req.TableID == "" {
+		req.TableID = "04"
+	}
+	if req.Provider == "" {
+		req.Provider = "telebirr"
+	}
+	restaurantID := "01J8RESTAURANT000000000001"
+
+	if h.sessionRepo == nil {
+		http.Error(w, "Session repository not configured", http.StatusInternalServerError)
+		return
+	}
+
+	sessionID := req.SessionID
+	if sessionID == "" {
+		active, err := h.sessionRepo.GetActiveSession(r.Context(), restaurantID, req.TableID)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(map[string]string{"error": "No active bill found for table"})
+			return
+		}
+		sessionID = active.ID
+	}
+
+	if req.BankReference == "" {
+		req.BankReference = fmt.Sprintf("TXN-ET-%d", time.Now().Unix()%1000000)
+	}
+
+	settled, err := h.sessionRepo.SettleBill(r.Context(), sessionID, req.Provider, req.BankReference)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	// Broadcast settlement to Waiter, Cashier, and Table channels
+	if h.hub != nil {
+		payload := map[string]interface{}{
+			"table_id":        settled.TableID,
+			"table_label":     settled.TableLabel,
+			"session_id":      settled.ID,
+			"total_amount":    settled.TotalAmount,
+			"provider":        req.Provider,
+			"bank_reference":  req.BankReference,
+			"settled_at":      time.Now().UTC(),
+		}
+		_ = h.hub.Broadcast("restaurant:"+restaurantID+":waiter", "table.settled", payload)
+		_ = h.hub.Broadcast("restaurant:"+restaurantID+":cashier", "table.settled", payload)
+		_ = h.hub.Broadcast("table:"+settled.TableID+":session", "table.settled", payload)
+	}
+
+	receiptNumber := fmt.Sprintf("FS-%d", time.Now().Unix())
+	resp := map[string]interface{}{
+		"status":                 "success",
+		"message":                "Table tab settled successfully",
+		"session_id":             settled.ID,
+		"table_id":               settled.TableID,
+		"total_amount":           settled.TotalAmount,
+		"subtotal":               settled.Subtotal,
+		"service_charge":         settled.ServiceChargeAmount,
+		"tax_amount":             settled.TaxAmount,
+		"provider":               settled.PaymentProvider,
+		"bank_reference":         settled.BankReference,
+		"fiscal_receipt_number":  receiptNumber,
+		"tin":                    "0083921045",
+		"vat_registration":       "VAT-AA-092-120",
+		"settled_at":             settled.ClosedAt,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(resp)
+}
+

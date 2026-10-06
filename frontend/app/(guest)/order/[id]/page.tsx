@@ -214,15 +214,23 @@ export default function GuestOrderStatusPage({ params }: OrderStatusPageProps) {
         </div>
 
         <div className="border-t border-[#ebdcd3]/60 pt-3 flex justify-between items-center text-sm font-black">
-          <span>Total Paid (VAT & Service incl.)</span>
+          <span>{order.paymentStatus === "paid" ? "Total Paid (VAT & Service incl.)" : "Round Total (Pending Bill)"}</span>
           <span className="text-primary">ETB {order.totalAmount}</span>
         </div>
       </div>
 
+      {/* View Table Bill & Digital Pay Action */}
+      <Link
+        href="/t/demo_token/bill"
+        className="w-full py-4 bg-primary hover:bg-primary-container active:scale-[0.99] rounded-2xl text-xs font-black text-white shadow-md transition-all flex items-center justify-center space-x-2 uppercase tracking-wider"
+      >
+        <span>💳 View Table Bill & Digital Pay →</span>
+      </Link>
+
       {/* Waiter Assistance Action Button */}
       <button
         onClick={() => setIsServiceModalOpen(true)}
-        className="w-full py-4 bg-white border border-[#ebdcd3] hover:bg-[#faf2ee] active:scale-[0.99] rounded-2xl text-xs font-extrabold text-buna shadow-sm transition-all flex items-center justify-center space-x-2"
+        className="w-full py-3.5 bg-white border border-[#ebdcd3] hover:bg-[#faf2ee] active:scale-[0.99] rounded-2xl text-xs font-extrabold text-buna shadow-sm transition-all flex items-center justify-center space-x-2"
       >
         <span className="text-base">🛎️</span>
         <span>Need Table Assistance? Call Waiter</span>
